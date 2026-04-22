@@ -6,7 +6,6 @@ namespace Beckend.Repositories
 {
     public class TournamentRepository : BaseRepository<Tournament>
     {
-        protected readonly IMongoCollection<Tournament> _tournaments;
         public TournamentRepository(IConfiguration config) : base(config, "Tournaments") { }
         // метод для пошуку за назвою
         public async Task<Tournament?> GetTournamentByNameAsync(string name)
@@ -14,7 +13,7 @@ namespace Beckend.Repositories
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Tournament name cannot be empty", nameof(name));
 
-            return await _tournaments
+            return await _collection
                 .Find(t => t.TournamentName == name)
                 .FirstOrDefaultAsync();
         }
@@ -28,13 +27,13 @@ namespace Beckend.Repositories
             var filter = Builders<Tournament>.Filter
                 .Where(t => t.TournamentName.Contains(searchTerm));
 
-            return await _tournaments.Find(filter).ToListAsync();
+            return await _collection.Find(filter).ToListAsync();
         }
 
         //  Пошук за типом турніру
         public async Task<List<Tournament>> GetTournamentsByTypeAsync(TournamentType type)
         {
-            return await _tournaments
+            return await _collection
                 .Find(t => t.TournamentType == type)
                 .ToListAsync();
         }
@@ -42,7 +41,7 @@ namespace Beckend.Repositories
         //  Пошук активних турнірів
         public async Task<List<Tournament>> GetActiveTournamentsAsync()
         {
-            return await _tournaments
+            return await _collection
                 .Find(t => t.EndDate == null || t.EndDate > DateTime.UtcNow)
                 .ToListAsync();
         }

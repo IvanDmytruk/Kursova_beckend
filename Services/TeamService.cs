@@ -1,19 +1,23 @@
-﻿using Beckend.Models;
+﻿// TeamService.cs
+using AutoMapper;
+using Beckend.Models;
 using Beckend.Repositories;
+using Beckend.DTOs;
 
 namespace Beckend.Services
 {
     public class TeamService
     {
         private readonly TeamRepository _teamRepository;
+        private readonly IMapper _mapper;
 
-        public TeamService(TeamRepository teamRepository)
+        public TeamService(TeamRepository teamRepository, IMapper mapper)
         {
             _teamRepository = teamRepository;
+            _mapper = mapper;
         }
 
-        // Отримати команду за назвою
-        public async Task<Team?> GetTeamByNameAsync(string name)
+        public async Task<TeamDto> GetTeamByNameAsync(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Team name is required");
@@ -23,64 +27,67 @@ namespace Beckend.Services
             if (team == null)
                 throw new KeyNotFoundException($"Team with name '{name}' not found");
 
-            return team;
+            return _mapper.Map<TeamDto>(team);
         }
 
-        // Пошук команд за назвою (частковий збіг)
-        public async Task<List<Team>> SearchTeamsAsync(string searchTerm)
+        public async Task<List<TeamDto>> SearchTeamsAsync(string searchTerm)
         {
             if (string.IsNullOrWhiteSpace(searchTerm))
-                return new List<Team>();
+                return new List<TeamDto>();
 
-            return await _teamRepository.GetTeamsByNameSearchAsync(searchTerm);
+            var teams = await _teamRepository.GetTeamsByNameSearchAsync(searchTerm);
+            return _mapper.Map<List<TeamDto>>(teams);
         }
 
-        // Перевірити чи існує команда з такою назвою
         public async Task<bool> TeamNameExistsAsync(string name)
         {
             var team = await _teamRepository.GetTeamByNameAsync(name);
             return team != null;
         }
 
-        // CRUD методи
-        public async Task<List<Team>> GetAllAsync() =>
-            await _teamRepository.GetAllAsync();
-
-        public async Task<Team?> GetByIdAsync(string id) =>
-            await _teamRepository.GetByIdAsync(id);
-
-        public async Task<Team> CreateAsync(Team team)
+        public async Task<List<TeamDto>> GetAllAsync()
         {
-            // Перевірка унікальності назви
-            var exists = await TeamNameExistsAsync(team.TeamName);
-            if (exists)
-                throw new InvalidOperationException($"Team with name '{team.TeamName}' already exists");
-
-            // Валідація назви
-            if (string.IsNullOrWhiteSpace(team.TeamName))
-                throw new ArgumentException("Team name is required");
-
-            await _teamRepository.CreateAsync(team);
-            return team;
+            var teams = await _teamRepository.GetAllAsync();
+            return _mapper.Map<List<TeamDto>>(teams);
         }
 
-        public async Task<Team> UpdateAsync(string id, Team team)
+        public async Task<TeamDto> GetByIdAsync(string id)
+        {
+            var team = await _teamRepository.GetByIdAsync(id);
+            return _mapper.Map<TeamDto>(team);
+        }
+
+        public async Task<TeamDto> CreateAsync(CreateTeamDto createDto)
+        {
+            var exists = await TeamNameExistsAsync(createDto.TeamName);
+            if (exists)
+                throw new InvalidOperationException($"Team with name '{createDto.TeamName}' already exists");
+
+            if (string.IsNullOrWhiteSpace(createDto.TeamName))
+                throw new ArgumentException("Team name is required");
+
+            var team = _mapper.Map<Team>(createDto);
+            await _teamRepository.CreateAsync(team);
+            return _mapper.Map<TeamDto>(team);
+        }
+
+        public async Task<TeamDto> UpdateAsync(string id, UpdateTeamDto updateDto)
         {
             var existing = await _teamRepository.GetByIdAsync(id);
             if (existing == null)
                 throw new KeyNotFoundException($"Team with id {id} not found");
 
-            // Перевірка унікальності назви (якщо назва змінилась)
-            if (existing.TeamName != team.TeamName)
+            if (existing.TeamName != updateDto.TeamName)
             {
-                var exists = await TeamNameExistsAsync(team.TeamName);
+                var exists = await TeamNameExistsAsync(updateDto.TeamName);
                 if (exists)
-                    throw new InvalidOperationException($"Team with name '{team.TeamName}' already exists");
+                    throw new InvalidOperationException($"Team with name '{updateDto.TeamName}' already exists");
             }
 
-            team.Id = id;
-            await _teamRepository.UpdateAsync(id, team);
-            return team;
+            _mapper.Map(updateDto, existing);
+            existing.Id = id;
+            await _teamRepository.UpdateAsync(id, existing);
+            return _mapper.Map<TeamDto>(existing);
         }
 
         public async Task<bool> DeleteAsync(string id)
@@ -93,13 +100,13 @@ namespace Beckend.Services
             return true;
         }
 
-        // Отримати команди з пагінацією
-        public async Task<List<Team>> GetTeamsPagedAsync(int page, int pageSize)
+        public async Task<List<TeamDto>> GetTeamsPagedAsync(int page, int pageSize)
         {
             if (page < 1) page = 1;
             if (pageSize < 1) pageSize = 10;
 
-            return await _teamRepository.GetAllTeamsPagedAsync(page, pageSize);
+            var teams = await _teamRepository.GetAllTeamsPagedAsync(page, pageSize);
+            return _mapper.Map<List<TeamDto>>(teams);
         }
     }
 }

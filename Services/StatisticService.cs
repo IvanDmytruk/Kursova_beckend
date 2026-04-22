@@ -1,96 +1,104 @@
-﻿using Beckend.Models;
+﻿// StatisticService.cs
+using AutoMapper;
+using Beckend.Models;
 using Beckend.Repositories;
+using Beckend.DTOs;
 
 namespace Beckend.Services
 {
     public class StatisticService
     {
         private readonly StatisticRepository _statisticRepository;
+        private readonly IMapper _mapper;
 
-        public StatisticService(StatisticRepository statisticRepository)
+        public StatisticService(StatisticRepository statisticRepository, IMapper mapper)
         {
             _statisticRepository = statisticRepository;
+            _mapper = mapper;
         }
 
-        // Отримати статистику гравця
-        public async Task<List<Statistic>> GetStatisticsByUserIdAsync(string userId)
+        public async Task<List<StatisticDto>> GetStatisticsByUserIdAsync(string userId)
         {
             if (string.IsNullOrWhiteSpace(userId))
                 throw new ArgumentException("User ID is required");
 
-            return await _statisticRepository.GetStatisticsByUserIdAsync(userId);
+            var statistics = await _statisticRepository.GetStatisticsByUserIdAsync(userId);
+            return _mapper.Map<List<StatisticDto>>(statistics);
         }
 
-        // Отримати статистику команди
-        public async Task<List<Statistic>> GetStatisticsByTeamIdAsync(string teamId)
+        public async Task<List<StatisticDto>> GetStatisticsByTeamIdAsync(string teamId)
         {
             if (string.IsNullOrWhiteSpace(teamId))
                 throw new ArgumentException("Team ID is required");
 
-            return await _statisticRepository.GetStatisticsByTeamIdAsync(teamId);
+            var statistics = await _statisticRepository.GetStatisticsByTeamIdAsync(teamId);
+            return _mapper.Map<List<StatisticDto>>(statistics);
         }
 
-        // Отримати статистику турніру
-        public async Task<List<Statistic>> GetStatisticsByTournamentIdAsync(string tournamentId)
+        public async Task<List<StatisticDto>> GetStatisticsByTournamentIdAsync(string tournamentId)
         {
             if (string.IsNullOrWhiteSpace(tournamentId))
                 throw new ArgumentException("Tournament ID is required");
 
-            return await _statisticRepository.GetStatisticsByTournamentIdAsync(tournamentId);
+            var statistics = await _statisticRepository.GetStatisticsByTournamentIdAsync(tournamentId);
+            return _mapper.Map<List<StatisticDto>>(statistics);
         }
 
-        // Отримати статистику за сезоном
-        public async Task<List<Statistic>> GetStatisticsBySeasonAsync(string season)
+        public async Task<List<StatisticDto>> GetStatisticsBySeasonAsync(string season)
         {
             if (string.IsNullOrWhiteSpace(season))
-                return new List<Statistic>();
+                return new List<StatisticDto>();
 
-            return await _statisticRepository.GetStatisticsBySeasonAsync(season);
+            var statistics = await _statisticRepository.GetStatisticsBySeasonAsync(season);
+            return _mapper.Map<List<StatisticDto>>(statistics);
         }
 
-        // Отримати топ гравців за очками
-        public async Task<List<Statistic>> GetTopPlayersAsync(int limit = 10)
+        public async Task<List<StatisticDto>> GetTopPlayersAsync(int limit = 10)
         {
             if (limit < 1) limit = 10;
 
-            return await _statisticRepository.GetTopPlayersByPointsAsync(limit);
+            var statistics = await _statisticRepository.GetTopPlayersByPointsAsync(limit);
+            return _mapper.Map<List<StatisticDto>>(statistics);
         }
 
-        // CRUD методи
-        public async Task<List<Statistic>> GetAllAsync() =>
-            await _statisticRepository.GetAllAsync();
-
-        public async Task<Statistic?> GetByIdAsync(string id) =>
-            await _statisticRepository.GetByIdAsync(id);
-
-        public async Task<Statistic> CreateAsync(Statistic statistic)
+        public async Task<List<StatisticDto>> GetAllAsync()
         {
-            // Валідація
-            if (string.IsNullOrWhiteSpace(statistic.UserId))
+            var statistics = await _statisticRepository.GetAllAsync();
+            return _mapper.Map<List<StatisticDto>>(statistics);
+        }
+
+        public async Task<StatisticDto> GetByIdAsync(string id)
+        {
+            var statistic = await _statisticRepository.GetByIdAsync(id);
+            return _mapper.Map<StatisticDto>(statistic);
+        }
+
+        public async Task<StatisticDto> CreateAsync(CreateStatisticDto createDto)
+        {
+            if (string.IsNullOrWhiteSpace(createDto.UserId))
                 throw new ArgumentException("User ID is required");
 
-            if (string.IsNullOrWhiteSpace(statistic.TeamId))
+            if (string.IsNullOrWhiteSpace(createDto.TeamId))
                 throw new ArgumentException("Team ID is required");
 
-            if (string.IsNullOrWhiteSpace(statistic.TournamentId))
+            if (string.IsNullOrWhiteSpace(createDto.TournamentId))
                 throw new ArgumentException("Tournament ID is required");
 
-            if (statistic.Wins < 0 || statistic.Losses < 0 || statistic.Draws < 0)
-                throw new ArgumentException("Statistics cannot be negative");
-
+            var statistic = _mapper.Map<Statistic>(createDto);
             await _statisticRepository.CreateAsync(statistic);
-            return statistic;
+            return _mapper.Map<StatisticDto>(statistic);
         }
 
-        public async Task<Statistic> UpdateAsync(string id, Statistic statistic)
+        public async Task<StatisticDto> UpdateAsync(string id, UpdateStatisticDto updateDto)
         {
             var existing = await _statisticRepository.GetByIdAsync(id);
             if (existing == null)
                 throw new KeyNotFoundException($"Statistic with id {id} not found");
 
-            statistic.Id = id;
-            await _statisticRepository.UpdateAsync(id, statistic);
-            return statistic;
+            _mapper.Map(updateDto, existing);
+            existing.Id = id;
+            await _statisticRepository.UpdateAsync(id, existing);
+            return _mapper.Map<StatisticDto>(existing);
         }
 
         public async Task<bool> DeleteAsync(string id)
@@ -103,8 +111,7 @@ namespace Beckend.Services
             return true;
         }
 
-        // Оновити статистику після матчу
-        public async Task<Statistic> UpdateMatchStatsAsync(string id, bool isWin, bool isDraw = false)
+        public async Task<StatisticDto> UpdateMatchStatsAsync(string id, bool isWin, bool isDraw = false)
         {
             var statistic = await _statisticRepository.GetByIdAsync(id);
             if (statistic == null)
@@ -128,7 +135,7 @@ namespace Beckend.Services
             }
 
             await _statisticRepository.UpdateAsync(id, statistic);
-            return statistic;
+            return _mapper.Map<StatisticDto>(statistic);
         }
     }
 }

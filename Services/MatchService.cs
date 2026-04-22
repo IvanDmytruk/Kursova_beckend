@@ -1,19 +1,23 @@
-﻿using Beckend.Models;
+﻿// MatchService.cs
+using AutoMapper;
+using Beckend.Models;
 using Beckend.Repositories;
+using Beckend.DTOs;
 
 namespace Beckend.Services
 {
     public class MatchService
     {
         private readonly MatchRepository _matchRepository;
+        private readonly IMapper _mapper;
 
-        public MatchService(MatchRepository matchRepository)
+        public MatchService(MatchRepository matchRepository, IMapper mapper)
         {
             _matchRepository = matchRepository;
+            _mapper = mapper;
         }
 
-        // Отримати матч за назвою
-        public async Task<Match?> GetMatchByNameAsync(string name)
+        public async Task<MatchDto> GetMatchByNameAsync(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Match name is required");
@@ -23,106 +27,109 @@ namespace Beckend.Services
             if (match == null)
                 throw new KeyNotFoundException($"Match with name '{name}' not found");
 
-            return match;
+            return _mapper.Map<MatchDto>(match);
         }
 
-        // Отримати матчі турніру
-        public async Task<List<Match>> GetMatchesByTournamentIdAsync(string tournamentId)
+        public async Task<List<MatchDto>> GetMatchesByTournamentIdAsync(string tournamentId)
         {
             if (string.IsNullOrWhiteSpace(tournamentId))
                 throw new ArgumentException("Tournament ID is required");
 
-            return await _matchRepository.GetMatchesByTournamentIdAsync(tournamentId);
+            var matches = await _matchRepository.GetMatchesByTournamentIdAsync(tournamentId);
+            return _mapper.Map<List<MatchDto>>(matches);
         }
 
-        // Отримати матчі команди
-        public async Task<List<Match>> GetMatchesByTeamIdAsync(string teamId)
+        public async Task<List<MatchDto>> GetMatchesByTeamIdAsync(string teamId)
         {
             if (string.IsNullOrWhiteSpace(teamId))
                 throw new ArgumentException("Team ID is required");
 
-            return await _matchRepository.GetMatchesByTeamIdAsync(teamId);
+            var matches = await _matchRepository.GetMatchesByTeamIdAsync(teamId);
+            return _mapper.Map<List<MatchDto>>(matches);
         }
 
-        // Отримати майбутні матчі
-        public async Task<List<Match>> GetUpcomingMatchesAsync()
+        public async Task<List<MatchDto>> GetUpcomingMatchesAsync()
         {
-            return await _matchRepository.GetUpcomingMatchesAsync();
+            var matches = await _matchRepository.GetUpcomingMatchesAsync();
+            return _mapper.Map<List<MatchDto>>(matches);
         }
 
-        // Отримати матчі за діапазоном дат - ВИПРАВЛЕНО НАЗВУ МЕТОДУ
-        public async Task<List<Match>> GetMatchesByDateRangeAsync(DateTime start, DateTime end)
+        public async Task<List<MatchDto>> GetMatchesByDateRangeAsync(DateTime start, DateTime end)
         {
             if (start > end)
                 throw new ArgumentException("Start date must be before end date");
 
-            return await _matchRepository.GetMatchesByDateRangeAsync(start, end); // Виправлено назву
+            var matches = await _matchRepository.GetMatchesByDateRangeAsync(start, end);
+            return _mapper.Map<List<MatchDto>>(matches);
         }
 
-        // Перевірити чи існує матч
         public async Task<bool> MatchExistsAsync(string name)
         {
             var match = await _matchRepository.GetMatchByNameAsync(name);
             return match != null;
         }
 
-        // CRUD методи
-        public async Task<List<Match>> GetAllAsync() =>
-            await _matchRepository.GetAllAsync();
-
-        public async Task<Match?> GetByIdAsync(string id) =>
-            await _matchRepository.GetByIdAsync(id);
-
-        public async Task<Match> CreateAsync(Match match)
+        public async Task<List<MatchDto>> GetAllAsync()
         {
-            // Перевірка унікальності назви
-            var exists = await MatchExistsAsync(match.MatchName);
-            if (exists)
-                throw new InvalidOperationException($"Match with name '{match.MatchName}' already exists");
-
-            // Валідація
-            if (string.IsNullOrWhiteSpace(match.MatchName))
-                throw new ArgumentException("Match name is required");
-
-            if (match.StartTime < DateTime.UtcNow)
-                throw new ArgumentException("Start time cannot be in the past");
-
-            if (match.TicketCost < 0)
-                throw new ArgumentException("Ticket cost cannot be negative");
-
-            if (match.MaxViewers <= 0)
-                throw new ArgumentException("Max viewers must be greater than 0");
-
-            if (string.IsNullOrWhiteSpace(match.HomeTeamId))
-                throw new ArgumentException("Home team is required");
-
-            if (string.IsNullOrWhiteSpace(match.AwayTeamId))
-                throw new ArgumentException("Away team is required");
-
-            if (match.HomeTeamId == match.AwayTeamId)
-                throw new ArgumentException("Home team and away team cannot be the same");
-
-            await _matchRepository.CreateAsync(match);
-            return match;
+            var matches = await _matchRepository.GetAllAsync();
+            return _mapper.Map<List<MatchDto>>(matches);
         }
 
-        public async Task<Match> UpdateAsync(string id, Match match)
+        public async Task<MatchDto> GetByIdAsync(string id)
+        {
+            var match = await _matchRepository.GetByIdAsync(id);
+            return _mapper.Map<MatchDto>(match);
+        }
+
+        public async Task<MatchDto> CreateAsync(CreateMatchDto createDto)
+        {
+            var exists = await MatchExistsAsync(createDto.MatchName);
+            if (exists)
+                throw new InvalidOperationException($"Match with name '{createDto.MatchName}' already exists");
+
+            if (string.IsNullOrWhiteSpace(createDto.MatchName))
+                throw new ArgumentException("Match name is required");
+
+            if (createDto.StartTime < DateTime.UtcNow)
+                throw new ArgumentException("Start time cannot be in the past");
+
+            if (createDto.TicketCost < 0)
+                throw new ArgumentException("Ticket cost cannot be negative");
+
+            if (createDto.MaxViewers <= 0)
+                throw new ArgumentException("Max viewers must be greater than 0");
+
+            if (string.IsNullOrWhiteSpace(createDto.HomeTeamId))
+                throw new ArgumentException("Home team is required");
+
+            if (string.IsNullOrWhiteSpace(createDto.AwayTeamId))
+                throw new ArgumentException("Away team is required");
+
+            if (createDto.HomeTeamId == createDto.AwayTeamId)
+                throw new ArgumentException("Home team and away team cannot be the same");
+
+            var match = _mapper.Map<Match>(createDto);
+            await _matchRepository.CreateAsync(match);
+            return _mapper.Map<MatchDto>(match);
+        }
+
+        public async Task<MatchDto> UpdateAsync(string id, UpdateMatchDto updateDto)
         {
             var existing = await _matchRepository.GetByIdAsync(id);
             if (existing == null)
                 throw new KeyNotFoundException($"Match with id {id} not found");
 
-            // Перевірка унікальності назви (якщо назва змінилась)
-            if (existing.MatchName != match.MatchName)
+            if (existing.MatchName != updateDto.MatchName)
             {
-                var exists = await MatchExistsAsync(match.MatchName);
+                var exists = await MatchExistsAsync(updateDto.MatchName);
                 if (exists)
-                    throw new InvalidOperationException($"Match with name '{match.MatchName}' already exists");
+                    throw new InvalidOperationException($"Match with name '{updateDto.MatchName}' already exists");
             }
 
-            match.Id = id;
-            await _matchRepository.UpdateAsync(id, match);
-            return match;
+            _mapper.Map(updateDto, existing);
+            existing.Id = id;
+            await _matchRepository.UpdateAsync(id, existing);
+            return _mapper.Map<MatchDto>(existing);
         }
 
         public async Task<bool> DeleteAsync(string id)
@@ -135,13 +142,13 @@ namespace Beckend.Services
             return true;
         }
 
-        // Отримати матчі, які скоро почнуться (наступні 24 години)
-        public async Task<List<Match>> GetMatchesStartingSoonAsync(int hours = 24)
+        public async Task<List<MatchDto>> GetMatchesStartingSoonAsync(int hours = 24)
         {
             var now = DateTime.UtcNow;
             var soon = now.AddHours(hours);
 
-            return await _matchRepository.GetMatchesByDateRangeAsync(now, soon); // Виправлено назву
+            var matches = await _matchRepository.GetMatchesByDateRangeAsync(now, soon);
+            return _mapper.Map<List<MatchDto>>(matches);
         }
     }
 }

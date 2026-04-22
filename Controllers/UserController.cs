@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Beckend.Models;
+﻿// UserController.cs
+using Microsoft.AspNetCore.Mvc;
+using Beckend.DTOs;
 using Beckend.Services;
+using AutoMapper;
 
 namespace Beckend.Controllers
 {
@@ -15,7 +17,6 @@ namespace Beckend.Controllers
             _userService = userService;
         }
 
-        // ОБ'ЄДНАНИЙ метод - шукає і гравців, і тренерів
         [HttpGet("search")]
         public async Task<IActionResult> SearchPlCo(string? name, string? surname)
         {
@@ -34,7 +35,6 @@ namespace Beckend.Controllers
             }
         }
 
-        // Окремий метод для пошуку по ID
         [HttpGet("search/{id}")]
         public async Task<IActionResult> SearchPlCoByID(string id)
         {
@@ -56,6 +56,7 @@ namespace Beckend.Controllers
                 return NotFound(ex.Message);
             }
         }
+
         [HttpGet("age-range")]
         public async Task<IActionResult> GetByAgeRange(int minAge, int maxAge)
         {
@@ -91,11 +92,11 @@ namespace Beckend.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] User user)
+        public async Task<IActionResult> Create([FromBody] CreateUserDto createDto)
         {
             try
             {
-                var created = await _userService.CreateAsync(user);
+                var created = await _userService.CreateAsync(createDto);
                 return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
             }
             catch (ArgumentException ex)
@@ -105,11 +106,11 @@ namespace Beckend.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(string id, [FromBody] User user)
+        public async Task<IActionResult> Update(string id, [FromBody] UpdateUserDto updateDto)
         {
             try
             {
-                var updated = await _userService.UpdateAsync(id, user);
+                var updated = await _userService.UpdateAsync(id, updateDto);
                 return Ok(updated);
             }
             catch (KeyNotFoundException ex)

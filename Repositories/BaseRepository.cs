@@ -9,7 +9,14 @@ namespace Beckend.Repositories
 
         protected BaseRepository(IConfiguration config, string collectionName)
         {
-            var client = new MongoClient("mongodb+srv://ivandmytruk42_db_user:lwokr123@db.rdcvntl.mongodb.net/?appName=DB"); 
+            var connectionString = config.GetConnectionString("MongoDB");
+
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                throw new InvalidOperationException("MongoDB connection string is not configured");
+            }
+
+            var client = new MongoClient(connectionString);
             var database = client.GetDatabase("CreateadTournament");
             _collection = database.GetCollection<T>(collectionName);
         }

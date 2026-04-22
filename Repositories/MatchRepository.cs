@@ -5,8 +5,6 @@ namespace Beckend.Repositories
 {
     public class MatchRepository : BaseRepository<Match>
     {
-        protected readonly IMongoCollection<Match> _matches;
-
         public MatchRepository(IConfiguration config) : base(config, "Matches") { }
 
         // Отримати матчі за турніром
@@ -15,7 +13,7 @@ namespace Beckend.Repositories
             if (string.IsNullOrWhiteSpace(tournamentId))
                 throw new ArgumentException("Tournament ID cannot be empty", nameof(tournamentId));
 
-            return await _matches
+            return await _collection
                 .Find(m => m.TournamentId == tournamentId)
                 .ToListAsync();
         }
@@ -29,13 +27,13 @@ namespace Beckend.Repositories
             var filter = Builders<Match>.Filter
                 .Where(m => m.HomeTeamId == teamId || m.AwayTeamId == teamId);
 
-            return await _matches.Find(filter).ToListAsync();
+            return await _collection.Find(filter).ToListAsync();
         }
 
         // Отримати майбутні матчі
         public async Task<List<Match>> GetUpcomingMatchesAsync()
         {
-            return await _matches
+            return await _collection
                 .Find(m => m.StartTime > DateTime.UtcNow)
                 .SortBy(m => m.StartTime)
                 .ToListAsync();
@@ -47,7 +45,7 @@ namespace Beckend.Repositories
             var filter = Builders<Match>.Filter
                 .Where(m => m.StartTime >= start && m.StartTime <= end);
 
-            return await _matches.Find(filter).ToListAsync();
+            return await _collection.Find(filter).ToListAsync();
         }
 
         // Пошук за назвою матчу
@@ -56,7 +54,7 @@ namespace Beckend.Repositories
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Match name cannot be empty", nameof(name));
 
-            return await _matches
+            return await _collection
                 .Find(m => m.MatchName == name)
                 .FirstOrDefaultAsync();
         }

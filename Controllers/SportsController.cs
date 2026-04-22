@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿// SportsController.cs
+using Microsoft.AspNetCore.Mvc;
 using Beckend.Enums;
-using Beckend.Models;
+using Beckend.DTOs;
 using Beckend.Services;
 
 namespace Beckend.Controllers
@@ -16,7 +17,6 @@ namespace Beckend.Controllers
             _sportService = sportService;
         }
 
-        // Отримати вид спорту за назвою
         [HttpGet("byname/{sportName}")]
         public async Task<IActionResult> GetByName(SportName sportName)
         {
@@ -31,7 +31,6 @@ namespace Beckend.Controllers
             }
         }
 
-        // Отримати види спорту за типом
         [HttpGet("bytype/{type}")]
         public async Task<IActionResult> GetByType(TypeSport type)
         {
@@ -39,7 +38,6 @@ namespace Beckend.Controllers
             return Ok(sports);
         }
 
-        // Отримати активні види спорту
         [HttpGet("active")]
         public async Task<IActionResult> GetActive()
         {
@@ -47,7 +45,6 @@ namespace Beckend.Controllers
             return Ok(sports);
         }
 
-        // Пошук за описом
         [HttpGet("search")]
         public async Task<IActionResult> Search([FromQuery] string term)
         {
@@ -55,7 +52,6 @@ namespace Beckend.Controllers
             return Ok(sports);
         }
 
-        // Перевірити чи існує вид спорту
         [HttpGet("exists/{sportName}")]
         public async Task<IActionResult> CheckExists(SportName sportName)
         {
@@ -63,7 +59,6 @@ namespace Beckend.Controllers
             return Ok(new { sportName = sportName, exists = exists });
         }
 
-        // Активація/деактивація
         [HttpPatch("{id}/toggle")]
         public async Task<IActionResult> ToggleActive(string id)
         {
@@ -78,7 +73,6 @@ namespace Beckend.Controllers
             }
         }
 
-        // Стандартні CRUD методи
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -96,11 +90,11 @@ namespace Beckend.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] Sport sport)
+        public async Task<IActionResult> Create([FromBody] CreateSportDto createDto)
         {
             try
             {
-                var created = await _sportService.CreateAsync(sport);
+                var created = await _sportService.CreateAsync(createDto);
                 return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
             }
             catch (ArgumentException ex)
@@ -114,11 +108,11 @@ namespace Beckend.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(string id, [FromBody] Sport sport)
+        public async Task<IActionResult> Update(string id, [FromBody] UpdateSportDto updateDto)
         {
             try
             {
-                var updated = await _sportService.UpdateAsync(id, sport);
+                var updated = await _sportService.UpdateAsync(id, updateDto);
                 return Ok(updated);
             }
             catch (KeyNotFoundException)

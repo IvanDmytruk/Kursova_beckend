@@ -1,5 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Beckend.Models;
+﻿// TeamsController.cs
+using Microsoft.AspNetCore.Mvc;
+using Beckend.DTOs;
 using Beckend.Services;
 
 namespace Beckend.Controllers
@@ -15,7 +16,6 @@ namespace Beckend.Controllers
             _teamService = teamService;
         }
 
-        // Отримати команду за назвою
         [HttpGet("byname/{name}")]
         public async Task<IActionResult> GetByName(string name)
         {
@@ -34,7 +34,6 @@ namespace Beckend.Controllers
             }
         }
 
-        // Пошук команд
         [HttpGet("search")]
         public async Task<IActionResult> Search([FromQuery] string term)
         {
@@ -42,7 +41,6 @@ namespace Beckend.Controllers
             return Ok(teams);
         }
 
-        // Перевірити чи існує назва
         [HttpGet("exists/{name}")]
         public async Task<IActionResult> CheckNameExists(string name)
         {
@@ -50,7 +48,6 @@ namespace Beckend.Controllers
             return Ok(new { name = name, exists = exists });
         }
 
-        // Отримати команди з пагінацією
         [HttpGet("paged")]
         public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
@@ -58,7 +55,6 @@ namespace Beckend.Controllers
             return Ok(teams);
         }
 
-        // Стандартні CRUD методи
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -76,11 +72,11 @@ namespace Beckend.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] Team team)
+        public async Task<IActionResult> Create([FromBody] CreateTeamDto createDto)
         {
             try
             {
-                var created = await _teamService.CreateAsync(team);
+                var created = await _teamService.CreateAsync(createDto);
                 return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
             }
             catch (ArgumentException ex)
@@ -94,11 +90,11 @@ namespace Beckend.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(string id, [FromBody] Team team)
+        public async Task<IActionResult> Update(string id, [FromBody] UpdateTeamDto updateDto)
         {
             try
             {
-                var updated = await _teamService.UpdateAsync(id, team);
+                var updated = await _teamService.UpdateAsync(id, updateDto);
                 return Ok(updated);
             }
             catch (KeyNotFoundException)

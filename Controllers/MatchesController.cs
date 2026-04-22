@@ -1,5 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Beckend.Models;
+﻿// MatchesController.cs
+using Microsoft.AspNetCore.Mvc;
+using Beckend.DTOs;
 using Beckend.Services;
 
 namespace Beckend.Controllers
@@ -15,7 +16,6 @@ namespace Beckend.Controllers
             _matchService = matchService;
         }
 
-        // Отримати матч за назвою
         [HttpGet("byname/{name}")]
         public async Task<IActionResult> GetByName(string name)
         {
@@ -34,7 +34,6 @@ namespace Beckend.Controllers
             }
         }
 
-        // Отримати матчі турніру
         [HttpGet("tournament/{tournamentId}")]
         public async Task<IActionResult> GetByTournamentId(string tournamentId)
         {
@@ -49,7 +48,6 @@ namespace Beckend.Controllers
             }
         }
 
-        // Отримати матчі команди
         [HttpGet("team/{teamId}")]
         public async Task<IActionResult> GetByTeamId(string teamId)
         {
@@ -64,7 +62,6 @@ namespace Beckend.Controllers
             }
         }
 
-        // Отримати майбутні матчі
         [HttpGet("upcoming")]
         public async Task<IActionResult> GetUpcoming()
         {
@@ -72,7 +69,6 @@ namespace Beckend.Controllers
             return Ok(matches);
         }
 
-        // Отримати матчі за діапазоном дат
         [HttpGet("daterange")]
         public async Task<IActionResult> GetByDateRange([FromQuery] DateTime start, [FromQuery] DateTime end)
         {
@@ -87,7 +83,6 @@ namespace Beckend.Controllers
             }
         }
 
-        // Отримати матчі, які скоро почнуться
         [HttpGet("startingsoon")]
         public async Task<IActionResult> GetStartingSoon([FromQuery] int hours = 24)
         {
@@ -95,7 +90,6 @@ namespace Beckend.Controllers
             return Ok(matches);
         }
 
-        // Перевірити чи існує матч
         [HttpGet("exists/{name}")]
         public async Task<IActionResult> CheckExists(string name)
         {
@@ -103,7 +97,6 @@ namespace Beckend.Controllers
             return Ok(new { name = name, exists = exists });
         }
 
-        // Стандартні CRUD методи
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -121,11 +114,11 @@ namespace Beckend.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] Match match)
+        public async Task<IActionResult> Create([FromBody] CreateMatchDto createDto)
         {
             try
             {
-                var created = await _matchService.CreateAsync(match);
+                var created = await _matchService.CreateAsync(createDto);
                 return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
             }
             catch (ArgumentException ex)
@@ -139,11 +132,11 @@ namespace Beckend.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(string id, [FromBody] Match match)
+        public async Task<IActionResult> Update(string id, [FromBody] UpdateMatchDto updateDto)
         {
             try
             {
-                var updated = await _matchService.UpdateAsync(id, match);
+                var updated = await _matchService.UpdateAsync(id, updateDto);
                 return Ok(updated);
             }
             catch (KeyNotFoundException)

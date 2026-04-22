@@ -6,7 +6,6 @@ namespace Beckend.Repositories
 {
     public class UserRepository: BaseRepository<User>
     {
-        protected readonly IMongoCollection<User> _users;
         public UserRepository(IConfiguration config) : base(config, "Users") { }
         //Пошук гравців та тренерів за ім'ям (виключає адмінів та гостей)
         public async Task<List<User>> SearchPlayersAndCoachesAsync(string? name, string? surname)
@@ -40,13 +39,13 @@ namespace Beckend.Repositories
 
             var filter = Builders<User>.Filter.And(filters);
 
-            return await _users.Find(filter).ToListAsync();
+            return await _collection.Find(filter).ToListAsync();
         }
 
         //Отримати всіх гравців
         public async Task<List<User>> GetAllPlayersAsync()
         {
-            return await _users
+            return await _collection
                 .Find(u => u.Role == UserRole.Player)
                 .ToListAsync();
         }
@@ -54,7 +53,7 @@ namespace Beckend.Repositories
         //Отримати всіх тренерів
         public async Task<List<User>> GetAllCoachesAsync()
         {
-            return await _users
+            return await _collection
                 .Find(u => u.Role == UserRole.Coach)
                 .ToListAsync();
         }
@@ -70,7 +69,7 @@ namespace Beckend.Repositories
                 Builders<User>.Filter.Lte(u => u.Age, maxAge)
             );
 
-            return await _users.Find(filter).ToListAsync();
+            return await _collection.Find(filter).ToListAsync();
         }
     }
 }

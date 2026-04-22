@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Beckend.Models;
+﻿// TournamentsController.cs
+using Microsoft.AspNetCore.Mvc;
+using Beckend.DTOs;
 using Beckend.Services;
+
 namespace Beckend.Controllers
 {
     [ApiController]
@@ -14,7 +16,6 @@ namespace Beckend.Controllers
             _tournamentService = tournamentService;
         }
 
-        // Отримати турнір за назвою
         [HttpGet("byname/{name}")]
         public async Task<IActionResult> GetByName(string name)
         {
@@ -33,7 +34,6 @@ namespace Beckend.Controllers
             }
         }
 
-        //Пошук турнірів
         [HttpGet("search")]
         public async Task<IActionResult> Search([FromQuery] string term)
         {
@@ -41,7 +41,6 @@ namespace Beckend.Controllers
             return Ok(tournaments);
         }
 
-        //Отримати активні турніри
         [HttpGet("active")]
         public async Task<IActionResult> GetActive()
         {
@@ -49,7 +48,6 @@ namespace Beckend.Controllers
             return Ok(tournaments);
         }
 
-        //Перевірити чи існує назва
         [HttpGet("exists/{name}")]
         public async Task<IActionResult> CheckNameExists(string name)
         {
@@ -57,7 +55,6 @@ namespace Beckend.Controllers
             return Ok(new { name = name, exists = exists });
         }
 
-        // Інші стандартні методи
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -75,11 +72,11 @@ namespace Beckend.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] Tournament tournament)
+        public async Task<IActionResult> Create([FromBody] CreateTournamentDto createDto)
         {
             try
             {
-                var created = await _tournamentService.CreateAsync(tournament);
+                var created = await _tournamentService.CreateAsync(createDto);
                 return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
             }
             catch (ArgumentException ex)
@@ -93,11 +90,11 @@ namespace Beckend.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(string id, [FromBody] Tournament tournament)
+        public async Task<IActionResult> Update(string id, [FromBody] UpdateTournamentDto updateDto)
         {
             try
             {
-                var updated = await _tournamentService.UpdateAsync(id, tournament);
+                var updated = await _tournamentService.UpdateAsync(id, updateDto);
                 return Ok(updated);
             }
             catch (KeyNotFoundException)
@@ -123,12 +120,12 @@ namespace Beckend.Controllers
             return NoContent();
         }
 
-        [HttpPost("{tournamentId}/teams")]
-        public async Task<IActionResult> AddTeam(string tournamentId, [FromBody] Team team)
+        [HttpPost("{tournamentId}/teams/{teamId}")]
+        public async Task<IActionResult> AddTeam(string tournamentId, string teamId)
         {
             try
             {
-                var result = await _tournamentService.AddTeamToTournament(tournamentId, team);
+                var result = await _tournamentService.AddTeamToTournament(tournamentId, teamId);
                 if (result)
                     return Ok();
                 return BadRequest("Failed to add team");
@@ -140,11 +137,11 @@ namespace Beckend.Controllers
         }
 
         [HttpDelete("{tournamentId}/teams/{teamId}")]
-        public async Task<IActionResult> RemoveTeam(string tournamentId, [FromBody] Team team)
+        public async Task<IActionResult> RemoveTeam(string tournamentId, string teamId)
         {
             try
             {
-                var result = await _tournamentService.RemoveTeamFromTournament(tournamentId, team);
+                var result = await _tournamentService.RemoveTeamFromTournament(tournamentId, teamId);
                 if (result)
                     return Ok();
                 return BadRequest("Failed to remove team");
@@ -155,5 +152,4 @@ namespace Beckend.Controllers
             }
         }
     }
-
 }

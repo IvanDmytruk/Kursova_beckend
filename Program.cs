@@ -1,3 +1,4 @@
+using Beckend.Mappings;
 using Beckend.Repositories;
 using Beckend.Services;
 using Microsoft.OpenApi;
@@ -5,13 +6,14 @@ using MongoDB.Driver;
 
 var builder = WebApplication.CreateBuilder(args);
 
-//SERVICES 
+// 1. AutoMapper
+builder.Services.AddAutoMapper(typeof(MappingProfile));
 
-// Controllers
+// 2. Controllers
 builder.Services.AddControllers();
 
-// MongoDB Configuration
-var mongoConnectionString = builder.Configuration.GetConnectionString("MongoDb");
+// 3. MongoDB Configuration
+var mongoConnectionString = builder.Configuration.GetConnectionString("MongoDB");
 if (string.IsNullOrEmpty(mongoConnectionString))
 {
     throw new InvalidOperationException("MongoDB connection string is not configured");
@@ -24,7 +26,7 @@ builder.Services.AddSingleton(sp =>
     return client.GetDatabase("CreateadTournament");
 });
 
-// Репозиторії
+// 4. Репозиторії
 builder.Services.AddScoped<UserRepository>();
 builder.Services.AddScoped<TournamentRepository>();
 builder.Services.AddScoped<TeamRepository>();
@@ -32,7 +34,7 @@ builder.Services.AddScoped<MatchRepository>();
 builder.Services.AddScoped<StatisticRepository>();
 builder.Services.AddScoped<SportRepository>();
 
-// Сервіси
+// 5. Сервіси
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<TournamentService>();
 builder.Services.AddScoped<TeamService>();
@@ -40,7 +42,7 @@ builder.Services.AddScoped<MatchService>();
 builder.Services.AddScoped<StatisticService>();
 builder.Services.AddScoped<SportService>();
 
-//SWAGGER
+// 6. Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -52,14 +54,13 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-//APP BUILD
+// APP BUILD
 var app = builder.Build();
 
 // MIDDLEWARE 
-
 app.UseHttpsRedirection();
 
-// Swagger
+// Swagger UI
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

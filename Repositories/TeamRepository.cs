@@ -5,8 +5,6 @@ namespace Beckend.Repositories
 {
     public class TeamRepository : BaseRepository<Team>
     {
-        protected readonly IMongoCollection<Team> _teams;
-
         public TeamRepository(IConfiguration config) : base(config, "Teams") { }
 
         // Пошук за назвою команди
@@ -15,7 +13,7 @@ namespace Beckend.Repositories
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Team name cannot be empty", nameof(name));
 
-            return await _teams
+            return await _collection
                 .Find(t => t.TeamName == name)
                 .FirstOrDefaultAsync();
         }
@@ -29,13 +27,13 @@ namespace Beckend.Repositories
             var filter = Builders<Team>.Filter
                 .Where(t => t.TeamName.Contains(searchTerm));
 
-            return await _teams.Find(filter).ToListAsync();
+            return await _collection.Find(filter).ToListAsync();
         }
 
         // Отримати всі команди з пагінацією
         public async Task<List<Team>> GetAllTeamsPagedAsync(int page, int pageSize)
         {
-            return await _teams
+            return await _collection
                 .Find(_ => true)
                 .Skip((page - 1) * pageSize)
                 .Limit(pageSize)

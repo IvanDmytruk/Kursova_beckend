@@ -6,14 +6,12 @@ namespace Beckend.Repositories
 {
     public class SportRepository : BaseRepository<Sport>
     {
-        protected readonly IMongoCollection<Sport> _sports;
-
         public SportRepository(IConfiguration config) : base(config, "Sports") { }
 
         // Пошук за назвою виду спорту
         public async Task<Sport?> GetSportByNameAsync(SportName sportName)
         {
-            return await _sports
+            return await _collection
                 .Find(s => s.SportName == sportName)
                 .FirstOrDefaultAsync();
         }
@@ -21,7 +19,7 @@ namespace Beckend.Repositories
         // Пошук за типом спорту
         public async Task<List<Sport>> GetSportsByTypeAsync(TypeSport type)
         {
-            return await _sports
+            return await _collection
                 .Find(s => s.Type == type)
                 .ToListAsync();
         }
@@ -29,7 +27,7 @@ namespace Beckend.Repositories
         // Отримати всі активні види спорту
         public async Task<List<Sport>> GetActiveSportsAsync()
         {
-            return await _sports
+            return await _collection
                 .Find(s => s.IsActive == true)
                 .ToListAsync();
         }
@@ -43,7 +41,7 @@ namespace Beckend.Repositories
             var filter = Builders<Sport>.Filter
                 .Where(s => s.SportDescription.Contains(searchTerm));
 
-            return await _sports.Find(filter).ToListAsync();
+            return await _collection.Find(filter).ToListAsync();
         }
     }
 }

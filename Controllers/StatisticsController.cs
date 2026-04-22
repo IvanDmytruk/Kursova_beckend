@@ -1,5 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Beckend.Models;
+﻿// StatisticsController.cs
+using Microsoft.AspNetCore.Mvc;
+using Beckend.DTOs;
 using Beckend.Services;
 
 namespace Beckend.Controllers
@@ -15,7 +16,6 @@ namespace Beckend.Controllers
             _statisticService = statisticService;
         }
 
-        // Отримати статистику гравця
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetByUserId(string userId)
         {
@@ -30,7 +30,6 @@ namespace Beckend.Controllers
             }
         }
 
-        // Отримати статистику команди
         [HttpGet("team/{teamId}")]
         public async Task<IActionResult> GetByTeamId(string teamId)
         {
@@ -45,7 +44,6 @@ namespace Beckend.Controllers
             }
         }
 
-        // Отримати статистику турніру
         [HttpGet("tournament/{tournamentId}")]
         public async Task<IActionResult> GetByTournamentId(string tournamentId)
         {
@@ -60,7 +58,6 @@ namespace Beckend.Controllers
             }
         }
 
-        // Отримати статистику за сезоном
         [HttpGet("season/{season}")]
         public async Task<IActionResult> GetBySeason(string season)
         {
@@ -68,7 +65,6 @@ namespace Beckend.Controllers
             return Ok(statistics);
         }
 
-        // Отримати топ гравців
         [HttpGet("top")]
         public async Task<IActionResult> GetTopPlayers([FromQuery] int limit = 10)
         {
@@ -76,7 +72,6 @@ namespace Beckend.Controllers
             return Ok(topPlayers);
         }
 
-        // Оновити статистику після матчу
         [HttpPatch("{id}/match")]
         public async Task<IActionResult> UpdateMatchStats(string id, [FromBody] MatchStatsRequest request)
         {
@@ -91,7 +86,6 @@ namespace Beckend.Controllers
             }
         }
 
-        // Стандартні CRUD методи
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -109,11 +103,11 @@ namespace Beckend.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] Statistic statistic)
+        public async Task<IActionResult> Create([FromBody] CreateStatisticDto createDto)
         {
             try
             {
-                var created = await _statisticService.CreateAsync(statistic);
+                var created = await _statisticService.CreateAsync(createDto);
                 return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
             }
             catch (ArgumentException ex)
@@ -123,11 +117,11 @@ namespace Beckend.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(string id, [FromBody] Statistic statistic)
+        public async Task<IActionResult> Update(string id, [FromBody] UpdateStatisticDto updateDto)
         {
             try
             {
-                var updated = await _statisticService.UpdateAsync(id, statistic);
+                var updated = await _statisticService.UpdateAsync(id, updateDto);
                 return Ok(updated);
             }
             catch (KeyNotFoundException)
@@ -150,7 +144,6 @@ namespace Beckend.Controllers
         }
     }
 
-    // DTO для запиту оновлення статистики матчу
     public class MatchStatsRequest
     {
         public bool IsWin { get; set; }

@@ -1,0 +1,6 @@
+@Beckend_HostAddress = http://localhost:5036
+
+GET {{Beckend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

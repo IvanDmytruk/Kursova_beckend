@@ -14,13 +14,15 @@ namespace Beckend.Models
 
         [BsonElement("TeamDescription")]
         public string TeamDescription { get; set; } = string.Empty;
+        [BsonElement("PopularityScore")]
+        public int PopularityScore { get; set; } = 0;
 
         public Team()
         {
             Id = ObjectId.GenerateNewId().ToString();
         }
 
-        public Team(string teamName, string teamDescription = null) : this()
+        public Team(string teamName, string teamDescription = "") : this()
         {
             TeamName = teamName;
             TeamDescription = teamDescription ?? string.Empty;

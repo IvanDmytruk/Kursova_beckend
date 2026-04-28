@@ -41,6 +41,7 @@ builder.Services.AddScoped<TeamService>();
 builder.Services.AddScoped<MatchService>();
 builder.Services.AddScoped<StatisticService>();
 builder.Services.AddScoped<SportService>();
+builder.Services.AddScoped<SearchService>();
 
 // 6. Swagger
 builder.Services.AddEndpointsApiExplorer();

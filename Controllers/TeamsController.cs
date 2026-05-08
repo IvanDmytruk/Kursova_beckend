@@ -70,6 +70,19 @@ namespace Beckend.Controllers
                 return NotFound();
             return Ok(team);
         }
+        [HttpGet("{id}/players")]
+        public async Task<IActionResult> GetPlayers(string id)
+        {
+            try
+            {
+                var players = await _teamService.GetPlayersByTeamIdAsync(id);
+                return Ok(players);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound($"Team with id {id} not found");
+            }
+        }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateTeamDto createDto)

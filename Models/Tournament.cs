@@ -32,17 +32,18 @@ namespace Beckend.Models
         public DateTime? EndDate { get; set; }
 
         [BsonElement("TournamentParticipants")]
-        private List<Team> _tournamentParticipants;
-
-        [BsonElement("TournamentParticipants")]
-        public List<Team> TournamentParticipants
-        {
-            get => _tournamentParticipants ?? new List<Team>();
-            set => _tournamentParticipants = value;
-        }
+        public List<Team> TournamentParticipants { get; set; } = new List<Team>();
 
         [BsonElement("NumberOfParticipants")]
         public int NumberOfParticipants => TournamentParticipants?.Count ?? 0;
+        [BsonElement("PopularityScore")]
+        public int PopularityScore { get; set; } = 0;
+        [BsonElement("SportName")]
+        public SportName SportName { get; set; }
+        [BsonElement("CreatedBy")]
+        public string CreatedBy { get; set; } = string.Empty;
+        [BsonElement("MaxParticipants")]
+        public int MaxParticipants { get; set; } = 0;
 
         public Tournament()
         {

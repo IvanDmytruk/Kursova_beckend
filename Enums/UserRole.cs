@@ -5,6 +5,7 @@
         Player,
         Admin,
         Coach,
-        Guest
+        Guest,
+        User
     }
 }

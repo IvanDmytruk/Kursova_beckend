@@ -52,6 +52,8 @@ namespace Beckend.Models
 
         [BsonElement("MaxCost")]
         public int? MaxCost { get; set; } = int.MaxValue;
+        [BsonElement("PopularityScore")]
+        public int PopularityScore { get; set; } = 0;
     }
 
     public class ExtendedUser : User

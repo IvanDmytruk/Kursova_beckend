@@ -29,6 +29,8 @@ namespace Beckend.Models
 
         [BsonElement("TournamentId")]
         public string TournamentId { get; set; }
+        [BsonElement("PopularityScore")]
+        public int PopularityScore { get; set; } = 0;
 
         public Match()
         {

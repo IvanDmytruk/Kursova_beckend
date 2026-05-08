@@ -30,7 +30,7 @@ namespace Beckend.Models
             CreatedAt = DateTime.UtcNow;
         }
 
-        public Sport(SportName sportName,TypeSport typesport, string sportDescription = null) : this()
+        public Sport(SportName sportName, TypeSport typesport, string sportDescription = "") : this()
         {
             SportName = sportName;
             Type = typesport;

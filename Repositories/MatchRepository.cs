@@ -58,5 +58,15 @@ namespace Beckend.Repositories
                 .Find(m => m.MatchName == name)
                 .FirstOrDefaultAsync();
         }
+        public async Task<List<Match>> GetMatchesByNameSearchAsync(string searchTerm)
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+                return new List<Match>();
+
+            var filter = Builders<Match>.Filter
+                .Where(m => m.MatchName.ToLower().Contains(searchTerm.ToLower()));
+
+            return await _collection.Find(filter).ToListAsync();
+        }
     }
 }

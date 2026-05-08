@@ -7,7 +7,6 @@ namespace Beckend.Repositories
     public class UserRepository: BaseRepository<User>
     {
         public UserRepository(IConfiguration config) : base(config, "Users") { }
-        //Пошук гравців та тренерів за ім'ям (виключає адмінів та гостей)
         public async Task<List<User>> SearchPlayersAndCoachesAsync(string? name, string? surname)
         {
             var roleFilter = Builders<User>.Filter.Or(
@@ -67,6 +66,15 @@ namespace Beckend.Repositories
                 ),
                 Builders<User>.Filter.Gte(u => u.Age, minAge),
                 Builders<User>.Filter.Lte(u => u.Age, maxAge)
+            );
+
+            return await _collection.Find(filter).ToListAsync();
+        }
+        public async Task<List<User>> GetPlayersByTeamIdAsync(string teamId)
+        {
+            var filter = Builders<User>.Filter.And(
+                Builders<User>.Filter.Eq(u => u.Role, UserRole.Player),
+                Builders<User>.Filter.Eq("PlayerProfile.TeamId", teamId)
             );
 
             return await _collection.Find(filter).ToListAsync();

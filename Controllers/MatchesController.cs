@@ -1,7 +1,7 @@
-﻿// MatchesController.cs
-using Microsoft.AspNetCore.Mvc;
-using Beckend.DTOs;
+﻿using Beckend.DTOs;
+using Beckend.Enums;
 using Beckend.Services;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Beckend.Controllers
 {
@@ -62,10 +62,11 @@ namespace Beckend.Controllers
             }
         }
 
+        // ⭐ ОДИН метод для отримання майбутніх матчів (з підтримкою фільтрації за спортом)
         [HttpGet("upcoming")]
-        public async Task<IActionResult> GetUpcoming()
+        public async Task<IActionResult> GetUpcoming([FromQuery] SportName? sport = null)
         {
-            var matches = await _matchService.GetUpcomingMatchesAsync();
+            var matches = await _matchService.GetUpcomingMatchesAsync(sport);
             return Ok(matches);
         }
 

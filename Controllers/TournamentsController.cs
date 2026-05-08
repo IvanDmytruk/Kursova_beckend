@@ -1,8 +1,14 @@
-﻿// TournamentsController.cs
-using Microsoft.AspNetCore.Mvc;
-using Beckend.DTOs;
+﻿using Beckend.DTOs;
+using Beckend.Enums;
+using Beckend.Models;
 using Beckend.Services;
-
+using AutoMapper;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.Mvc;
+public class RegisterForTournamentRequest
+{
+    public string TeamId { get; set; } = string.Empty;
+}
 namespace Beckend.Controllers
 {
     [ApiController]
@@ -10,10 +16,12 @@ namespace Beckend.Controllers
     public class TournamentsController : ControllerBase
     {
         private readonly TournamentService _tournamentService;
+        private readonly IMapper _mapper;
 
-        public TournamentsController(TournamentService tournamentService)
+        public TournamentsController(TournamentService tournamentService, IMapper mapper)
         {
             _tournamentService = tournamentService;
+            _mapper = mapper;
         }
 
         [HttpGet("byname/{name}")]
@@ -42,9 +50,9 @@ namespace Beckend.Controllers
         }
 
         [HttpGet("active")]
-        public async Task<IActionResult> GetActive()
+        public async Task<IActionResult> GetActive([FromQuery] SportName? sport = null)
         {
-            var tournaments = await _tournamentService.GetActiveTournamentsAsync();
+            var tournaments = await _tournamentService.GetActiveTournamentsAsync(sport);
             return Ok(tournaments);
         }
 
@@ -76,6 +84,9 @@ namespace Beckend.Controllers
         {
             try
             {
+                var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+                createDto.CreatedBy = userId;
+
                 var created = await _tournamentService.CreateAsync(createDto);
                 return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
             }
@@ -110,7 +121,50 @@ namespace Beckend.Controllers
                 return Conflict(ex.Message);
             }
         }
+        [HttpPost("{tournamentId}/register")]
+        public async Task<IActionResult> RegisterForTournament(string tournamentId, [FromBody] RegisterForTournamentRequest request)
+        {
+            try
+            {
+                var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized("User not authenticated");
 
+                var tournament = await _tournamentService.GetByIdAsync(tournamentId);
+                if (tournament == null)
+                    return NotFound("Tournament not found");
+
+                if (tournament.Format == TournamentFormat.Individual.ToString())
+                {
+                    await _tournamentService.RegisterPlayerAsync(tournamentId, userId);
+                    return Ok(new { message = "Player successfully registered for tournament" });
+                }
+                else if (tournament.Format == TournamentFormat.Command.ToString())
+                {
+                    if (string.IsNullOrEmpty(request?.TeamId))
+                        return BadRequest("TeamId is required for team tournament");
+
+                    await _tournamentService.RegisterTeamAsync(tournamentId, request.TeamId);
+                    return Ok(new { message = "Team successfully registered for tournament" });
+                }
+                else
+                {
+                    return BadRequest("Unknown tournament format");
+                }
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
@@ -151,5 +205,6 @@ namespace Beckend.Controllers
                 return NotFound(ex.Message);
             }
         }
+
     }
 }

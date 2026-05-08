@@ -1,8 +1,9 @@
 ﻿// MatchService.cs
 using AutoMapper;
+using Beckend.DTOs;
+using Beckend.Enums;
 using Beckend.Models;
 using Beckend.Repositories;
-using Beckend.DTOs;
 
 namespace Beckend.Services
 {
@@ -150,5 +151,18 @@ namespace Beckend.Services
             var matches = await _matchRepository.GetMatchesByDateRangeAsync(now, soon);
             return _mapper.Map<List<MatchDto>>(matches);
         }
+        public async Task<List<MatchDto>> GetUpcomingMatchesAsync(SportName? sport = null)
+        {
+            var matches = await _matchRepository.GetUpcomingMatchesAsync();
+
+            if (sport.HasValue)
+            {
+                matches = matches.Where(m => m.SportName == sport.Value).ToList();
+            }
+
+            var matchDtos = _mapper.Map<List<MatchDto>>(matches);
+            return matchDtos;
+        }
+
     }
 }

@@ -1,18 +1,45 @@
+﻿using Beckend.JWT;
 using Beckend.Mappings;
 using Beckend.Repositories;
 using Beckend.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using MongoDB.Driver;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. AutoMapper
-builder.Services.AddAutoMapper(typeof(MappingProfile));
+// CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        });
+});
 
-// 2. Controllers
+// JWT
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+builder.Services.AddScoped<TokenService>();
+
+// Kestrel
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenLocalhost(5036);
+    options.ListenLocalhost(7171, listenOptions =>
+    {
+        listenOptions.UseHttps();
+    });
+});
+
+builder.Services.AddAutoMapper(typeof(MappingProfile));
 builder.Services.AddControllers();
 
-// 3. MongoDB Configuration
+// MongoDB
 var mongoConnectionString = builder.Configuration.GetConnectionString("MongoDB");
 if (string.IsNullOrEmpty(mongoConnectionString))
 {
@@ -26,7 +53,7 @@ builder.Services.AddSingleton(sp =>
     return client.GetDatabase("CreateadTournament");
 });
 
-// 4. ���������
+// Репозиторії
 builder.Services.AddScoped<UserRepository>();
 builder.Services.AddScoped<TournamentRepository>();
 builder.Services.AddScoped<TeamRepository>();
@@ -34,7 +61,7 @@ builder.Services.AddScoped<MatchRepository>();
 builder.Services.AddScoped<StatisticRepository>();
 builder.Services.AddScoped<SportRepository>();
 
-// 5. ������
+// Сервіси
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<TournamentService>();
 builder.Services.AddScoped<TeamService>();
@@ -42,8 +69,9 @@ builder.Services.AddScoped<MatchService>();
 builder.Services.AddScoped<StatisticService>();
 builder.Services.AddScoped<SportService>();
 builder.Services.AddScoped<SearchService>();
+builder.Services.AddScoped<TokenService>();
 
-// 6. Swagger
+// Swagger 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -55,13 +83,29 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// APP BUILD
+//АУТЕНТИФІКАЦІЯ JWT 
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSettings?.Issuer,
+            ValidAudience = jwtSettings?.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings?.SecretKey ?? ""))
+        };
+    });
+
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
 
-// MIDDLEWARE 
-app.UseHttpsRedirection();
+app.UseCors("AllowAll");
 
-// Swagger UI
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -72,7 +116,9 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();

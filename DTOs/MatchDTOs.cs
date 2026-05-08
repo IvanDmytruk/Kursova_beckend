@@ -1,4 +1,6 @@
-﻿namespace Beckend.DTOs
+﻿using Beckend.Enums;
+
+namespace Beckend.DTOs
 {
     public class MatchDto
     {
@@ -11,6 +13,7 @@
         public string AwayTeamId { get; set; }
         public string TournamentId { get; set; }
         public string Status { get; set; }
+        public string SportName { get; set; }
     }
 
     public class CreateMatchDto
@@ -22,6 +25,7 @@
         public string HomeTeamId { get; set; }
         public string AwayTeamId { get; set; }
         public string TournamentId { get; set; }
+        public string SportName { get; set; }
     }
 
     public class UpdateMatchDto
@@ -34,6 +38,7 @@
         public string AwayTeamId { get; set; }
         public string TournamentId { get; set; }
         public string Status { get; set; }
+        public string SportName { get; set; }
     }
 
     public class UpdateMatchStatusDto

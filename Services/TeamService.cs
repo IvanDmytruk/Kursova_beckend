@@ -1,19 +1,22 @@
 ﻿// TeamService.cs
 using AutoMapper;
+using Beckend.DTOs;
 using Beckend.Models;
 using Beckend.Repositories;
-using Beckend.DTOs;
+using System.Numerics;
 
 namespace Beckend.Services
 {
     public class TeamService
     {
         private readonly TeamRepository _teamRepository;
+        private readonly UserRepository _userRepository;
         private readonly IMapper _mapper;
 
-        public TeamService(TeamRepository teamRepository, IMapper mapper)
+        public TeamService(TeamRepository teamRepository, IMapper mapper, UserRepository userRepository)
         {
             _teamRepository = teamRepository;
+            _userRepository = userRepository;
             _mapper = mapper;
         }
 
@@ -29,7 +32,6 @@ namespace Beckend.Services
 
             return _mapper.Map<TeamDto>(team);
         }
-
         public async Task<List<TeamDto>> SearchTeamsAsync(string searchTerm)
         {
             if (string.IsNullOrWhiteSpace(searchTerm))
@@ -37,6 +39,16 @@ namespace Beckend.Services
 
             var teams = await _teamRepository.GetTeamsByNameSearchAsync(searchTerm);
             return _mapper.Map<List<TeamDto>>(teams);
+        }
+        public async Task<List<User>> GetPlayersByTeamIdAsync(string teamId)
+        {
+            var team = await _teamRepository.GetByIdAsync(teamId);
+            if (team == null)
+            {
+                throw new KeyNotFoundException($"Team with id {teamId} not found");
+            }
+
+            return await _userRepository.GetPlayersByTeamIdAsync(teamId);
         }
 
         public async Task<bool> TeamNameExistsAsync(string name)

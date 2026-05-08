@@ -1,4 +1,5 @@
-﻿using MongoDB.Bson;
+﻿using Beckend.Enums;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace Beckend.Models
@@ -16,6 +17,8 @@ namespace Beckend.Models
         public string TeamDescription { get; set; } = string.Empty;
         [BsonElement("PopularityScore")]
         public int PopularityScore { get; set; } = 0;
+        [BsonElement("SportName")]
+        public SportName SportName { get; set; }
 
         public Team()
         {

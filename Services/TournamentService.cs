@@ -1,20 +1,23 @@
 ﻿// TournamentService.cs
 using AutoMapper;
+using Beckend.DTOs;
+using Beckend.Enums;
 using Beckend.Models;
 using Beckend.Repositories;
-using Beckend.DTOs;
 
 namespace Beckend.Services
 {
     public class TournamentService
     {
         private readonly TournamentRepository _tournamentRepository;
+        private readonly TeamRepository _teamRepository;
         private readonly IMapper _mapper;
 
-        public TournamentService(TournamentRepository tournamentRepository, IMapper mapper)
+        public TournamentService(TournamentRepository tournamentRepository, IMapper mapper, TeamRepository teamRepository)
         {
             _tournamentRepository = tournamentRepository;
             _mapper = mapper;
+            _teamRepository = teamRepository;
         }
 
         public async Task<TournamentDto> GetTournamentByNameAsync(string name)
@@ -38,7 +41,6 @@ namespace Beckend.Services
             var tournaments = await _tournamentRepository.GetTournamentsByNameSearchAsync(searchTerm);
             return _mapper.Map<List<TournamentDto>>(tournaments);
         }
-
         public async Task<List<TournamentDto>> GetActiveTournamentsAsync()
         {
             var tournaments = await _tournamentRepository.GetActiveTournamentsAsync();
@@ -140,6 +142,77 @@ namespace Beckend.Services
                 await _tournamentRepository.UpdateAsync(tournamentId, tournament);
             }
             return result;
+        }
+        public async Task<List<TournamentDto>> GetActiveTournamentsAsync(SportName? sport = null)
+        {
+            var tournaments = await _tournamentRepository.GetActiveTournamentsAsync();
+
+            if (sport.HasValue)
+            {
+                tournaments = tournaments.Where(t => t.SportName == sport.Value).ToList();
+            }
+
+            var tournamentDtos = _mapper.Map<List<TournamentDto>>(tournaments);
+            return tournamentDtos;
+        }
+        public async Task<bool> RegisterPlayerAsync(string tournamentId, string userId)
+        {
+            var tournament = await _tournamentRepository.GetByIdAsync(tournamentId);
+            if (tournament == null)
+                throw new KeyNotFoundException("Tournament not found");
+
+            if (tournament.StartDate < DateTime.UtcNow)
+                throw new InvalidOperationException("Tournament has already started, registration closed");
+
+            if (tournament.Format != TournamentFormat.Individual)
+                throw new InvalidOperationException("This tournament is for teams, not individuals");
+
+            if (tournament.MaxParticipants > 0 && tournament.TournamentParticipants.Count >= tournament.MaxParticipants)
+                throw new InvalidOperationException($"Tournament is full. Maximum {tournament.MaxParticipants} participants allowed");
+
+            if (tournament.TournamentParticipants.Any(p => p.Id == userId))
+                throw new InvalidOperationException("User already registered for this tournament");
+
+            var player = new Team
+            {
+                Id = userId,
+                TeamName = $"Player_{userId.Substring(0, 6)}",
+                TeamDescription = "Individual player",
+                SportName = tournament.SportName
+            };
+
+            tournament.TournamentParticipants.Add(player);
+            await _tournamentRepository.UpdateAsync(tournamentId, tournament);
+
+            return true;
+        }
+
+        public async Task<bool> RegisterTeamAsync(string tournamentId, string teamId)
+        {
+            var tournament = await _tournamentRepository.GetByIdAsync(tournamentId);
+            if (tournament == null)
+                throw new KeyNotFoundException("Tournament not found");
+
+            if (tournament.StartDate < DateTime.UtcNow)
+                throw new InvalidOperationException("Tournament has already started, registration closed");
+
+            if (tournament.Format != TournamentFormat.Command)
+                throw new InvalidOperationException("This tournament is for individuals, not teams");
+
+            if (tournament.MaxParticipants > 0 && tournament.TournamentParticipants.Count >= tournament.MaxParticipants)
+                throw new InvalidOperationException($"Tournament is full. Maximum {tournament.MaxParticipants} teams allowed");
+
+            var team = await _teamRepository.GetByIdAsync(teamId);
+            if (team == null)
+                throw new KeyNotFoundException("Team not found");
+
+            if (tournament.TournamentParticipants.Any(p => p.Id == teamId))
+                throw new InvalidOperationException("Team already registered for this tournament");
+
+            tournament.TournamentParticipants.Add(team);
+            await _tournamentRepository.UpdateAsync(tournamentId, tournament);
+
+            return true;
         }
     }
 }

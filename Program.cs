@@ -10,37 +10,40 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ⭐ Отримуємо порт для Cloud Run
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+var url = $"http://0.0.0.0:{port}";
+
 // CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        policy =>
-        {
-            policy.AllowAnyOrigin()
-                  .AllowAnyMethod()
-                  .AllowAnyHeader();
-        });
-});
-
-// JWT
-builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
-builder.Services.AddScoped<TokenService>();
-
-// Kestrel
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.ListenLocalhost(5036);
-    options.ListenLocalhost(7171, listenOptions =>
+    options.AddPolicy("AllowAll", policy =>
     {
-        listenOptions.UseHttps();
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
     });
 });
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.WebHost.ConfigureKestrel(options =>
+    {
+        options.ListenLocalhost(5036);
+        options.ListenLocalhost(7171, listenOptions =>
+        {
+            listenOptions.UseHttps();
+        });
+    });
+}
 
 builder.Services.AddAutoMapper(typeof(MappingProfile));
 builder.Services.AddControllers();
 
-// MongoDB
-var mongoConnectionString = builder.Configuration.GetConnectionString("MongoDB");
+// MongoDB Connection
+var mongoConnectionString = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING")
+    ?? builder.Configuration.GetConnectionString("MongoDB");
+
 if (string.IsNullOrEmpty(mongoConnectionString))
 {
     throw new InvalidOperationException("MongoDB connection string is not configured");
@@ -52,6 +55,34 @@ builder.Services.AddSingleton(sp =>
     var client = sp.GetRequiredService<IMongoClient>();
     return client.GetDatabase("CreateadTournament");
 });
+
+// JWT Settings
+var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
+    ?? builder.Configuration["JwtSettings:SecretKey"];
+
+var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
+    ?? builder.Configuration["JwtSettings:Issuer"];
+
+var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
+    ?? builder.Configuration["JwtSettings:Audience"];
+
+var jwtExpiryMinutes = int.Parse(Environment.GetEnvironmentVariable("JWT_ACCESS_TOKEN_EXPIRY_MINUTES")
+    ?? builder.Configuration["JwtSettings:AccessTokenExpiryMinutes"] ?? "60");
+
+var jwtRefreshExpiryDays = int.Parse(Environment.GetEnvironmentVariable("JWT_REFRESH_TOKEN_EXPIRY_DAYS")
+    ?? builder.Configuration["JwtSettings:RefreshTokenExpiryDays"] ?? "7");
+
+// Реєстрація JwtSettings
+builder.Services.Configure<JwtSettings>(options =>
+{
+    options.SecretKey = jwtSecretKey;
+    options.Issuer = jwtIssuer;
+    options.Audience = jwtAudience;
+    options.AccessTokenExpiryMinutes = jwtExpiryMinutes;
+    options.RefreshTokenExpiryDays = jwtRefreshExpiryDays;
+});
+
+builder.Services.AddScoped<TokenService>();
 
 // Репозиторії
 builder.Services.AddScoped<UserRepository>();
@@ -69,9 +100,8 @@ builder.Services.AddScoped<MatchService>();
 builder.Services.AddScoped<StatisticService>();
 builder.Services.AddScoped<SportService>();
 builder.Services.AddScoped<SearchService>();
-builder.Services.AddScoped<TokenService>();
 
-// Swagger 
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -83,20 +113,19 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-//АУТЕНТИФІКАЦІЯ JWT 
+// Аутентифікація JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtSettings?.Issuer,
-            ValidAudience = jwtSettings?.Audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings?.SecretKey ?? ""))
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey ?? ""))
         };
     });
 
@@ -121,4 +150,4 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.Run();
+app.Run(url);

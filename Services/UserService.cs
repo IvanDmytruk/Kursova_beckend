@@ -18,12 +18,12 @@ namespace Beckend.Services
             _mapper = mapper;
         }
 
-        public async Task<List<UserDto>> SearchPlayersAndCoachesAsync(string? name = null, string? surname = null)
+        public async Task<List<UserDto>> SearchPlayersAndCoachesAsync(string? searchTerm)
         {
-            if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(surname))
+            if (string.IsNullOrWhiteSpace(searchTerm))
                 throw new ArgumentException("At least name or surname must be provided");
 
-            var users = await _userRepository.SearchPlayersAndCoachesAsync(name, surname);
+            var users = await _userRepository.SearchPlayersAndCoachesAsync(searchTerm);
 
             if (users.Count == 0)
                 throw new KeyNotFoundException("No players or coaches found");

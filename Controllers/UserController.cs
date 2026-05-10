@@ -18,11 +18,11 @@ namespace Beckend.Controllers
         }
 
         [HttpGet("search")]
-        public async Task<IActionResult> SearchPlCo(string? name, string? surname)
+        public async Task<IActionResult> SearchPlCo([FromQuery] string term)
         {
             try
             {
-                var users = await _userService.SearchPlayersAndCoachesAsync(name, surname);
+                var users = await _userService.SearchPlayersAndCoachesAsync(term);
                 return Ok(users);
             }
             catch (ArgumentException ex)

@@ -18,14 +18,17 @@ namespace Beckend.Repositories
                 .FirstOrDefaultAsync();
         }
 
-        // Пошук за частиною назви
+        // Пошук за частиною назви 
         public async Task<List<Team>> GetTeamsByNameSearchAsync(string searchTerm)
         {
             if (string.IsNullOrWhiteSpace(searchTerm))
                 return new List<Team>();
 
-            var filter = Builders<Team>.Filter
-                .Where(t => t.TeamName.Contains(searchTerm));
+            // Використовуємо Regex для часткового пошуку
+            var filter = Builders<Team>.Filter.Regex(
+                t => t.TeamName,
+                new MongoDB.Bson.BsonRegularExpression(searchTerm, "i")
+            );
 
             return await _collection.Find(filter).ToListAsync();
         }

@@ -1,7 +1,6 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using Beckend.Enums;
-
 namespace Beckend.Models
 {
     public class Tournament
@@ -9,31 +8,22 @@ namespace Beckend.Models
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; } 
-
         [BsonElement("TournamentName")]
         public string TournamentName { get; set; }
-
         [BsonElement("TournamentDescription")]
         public string TournamentDescription { get; set; }
-
         [BsonElement("TournamentType")]
         public TournamentType TournamentType { get; set; }
-
         [BsonElement("Format")]
         public TournamentFormat Format { get; set; }
-
         [BsonElement("PrizeFund")]
         public int PrizeFund { get; set; }
-
         [BsonElement("StartDate")]
         public DateTime StartDate { get; set; }
-
         [BsonElement("EndDate")]
         public DateTime? EndDate { get; set; }
-
         [BsonElement("TournamentParticipants")]
         public List<Team> TournamentParticipants { get; set; } = new List<Team>();
-
         [BsonElement("NumberOfParticipants")]
         public int NumberOfParticipants => TournamentParticipants?.Count ?? 0;
         [BsonElement("PopularityScore")]
@@ -44,12 +34,10 @@ namespace Beckend.Models
         public string CreatedBy { get; set; } = string.Empty;
         [BsonElement("MaxParticipants")]
         public int MaxParticipants { get; set; } = 0;
-
         public Tournament()
         {
             Id = ObjectId.GenerateNewId().ToString();
         }
-
         public bool AddParticipant(Team team)
         {
             if (team == null)
@@ -61,7 +49,6 @@ namespace Beckend.Models
             TournamentParticipants.Add(team);
             return true;
         }
-
         public bool RemoveParticipant(Team team)
         {
             return TournamentParticipants.Remove(team);

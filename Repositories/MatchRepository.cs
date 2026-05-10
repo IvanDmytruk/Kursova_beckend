@@ -63,8 +63,11 @@ namespace Beckend.Repositories
             if (string.IsNullOrWhiteSpace(searchTerm))
                 return new List<Match>();
 
-            var filter = Builders<Match>.Filter
-                .Where(m => m.MatchName.ToLower().Contains(searchTerm.ToLower()));
+            // Використовуємо Regex для часткового пошуку
+            var filter = Builders<Match>.Filter.Regex(
+                m => m.MatchName,
+                new MongoDB.Bson.BsonRegularExpression(searchTerm, "i")
+            );
 
             return await _collection.Find(filter).ToListAsync();
         }

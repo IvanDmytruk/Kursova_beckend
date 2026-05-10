@@ -7,36 +7,29 @@ namespace Beckend.Repositories
     public class UserRepository: BaseRepository<User>
     {
         public UserRepository(IConfiguration config) : base(config, "Users") { }
-        public async Task<List<User>> SearchPlayersAndCoachesAsync(string? name, string? surname)
+        public async Task<List<User>> SearchPlayersAndCoachesAsync(string? searchTerm)
         {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+                return new List<User>();
+
             var roleFilter = Builders<User>.Filter.Or(
                 Builders<User>.Filter.Eq(u => u.Role, UserRole.Player),
                 Builders<User>.Filter.Eq(u => u.Role, UserRole.Coach)
             );
 
-            var filters = new List<FilterDefinition<User>> { roleFilter };
+            var nameFilter = Builders<User>.Filter.Regex(
+                u => u.Name,
+                new MongoDB.Bson.BsonRegularExpression(searchTerm, "i")
+            );
 
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                filters.Add(
-                    Builders<User>.Filter.Regex(
-                        u => u.Name,
-                        new MongoDB.Bson.BsonRegularExpression(name, "i")
-                    )
-                );
-            }
+            var surnameFilter = Builders<User>.Filter.Regex(
+                u => u.Surname,
+                new MongoDB.Bson.BsonRegularExpression(searchTerm, "i")
+            );
 
-            if (!string.IsNullOrWhiteSpace(surname))
-            {
-                filters.Add(
-                    Builders<User>.Filter.Regex(
-                        u => u.Surname,
-                        new MongoDB.Bson.BsonRegularExpression(surname, "i")
-                    )
-                );
-            }
+            var fullNameFilter = Builders<User>.Filter.Or(nameFilter, surnameFilter);
 
-            var filter = Builders<User>.Filter.And(filters);
+            var filter = Builders<User>.Filter.And(roleFilter, fullNameFilter);
 
             return await _collection.Find(filter).ToListAsync();
         }

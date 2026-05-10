@@ -24,8 +24,11 @@ namespace Beckend.Repositories
             if (string.IsNullOrWhiteSpace(searchTerm))
                 return new List<Tournament>();
 
-            var filter = Builders<Tournament>.Filter
-                .Where(t => t.TournamentName.Contains(searchTerm));
+            // Використовуємо Regex для часткового пошуку (case-insensitive)
+            var filter = Builders<Tournament>.Filter.Regex(
+                t => t.TournamentName,
+                new MongoDB.Bson.BsonRegularExpression(searchTerm, "i")
+            );
 
             return await _collection.Find(filter).ToListAsync();
         }

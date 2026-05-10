@@ -26,7 +26,7 @@ namespace Beckend.Services
 
         public async Task<object> GetSuggestionsAsync(string query, int limit = 10)
         {
-            Console.WriteLine($"Searching for: {query}");  // ← Додати
+            Console.WriteLine($"Searching for: {query}");  
 
             if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
                 return new { query, suggestions = new List<object>() };
@@ -34,11 +34,11 @@ namespace Beckend.Services
             var suggestions = new List<object>();
             var searchTerm = query.ToLower();
 
-            Console.WriteLine($"Search term: {searchTerm}");  // ← Додати
+            Console.WriteLine($"Search term: {searchTerm}");  
 
             // 1. Команди
             var teams = await _teamRepository.GetTeamsByNameSearchAsync(searchTerm);
-            Console.WriteLine($"Found teams: {teams.Count}");  // ← Додати
+            Console.WriteLine($"Found teams: {teams.Count}");  
 
             foreach (var team in teams)
             {
@@ -53,7 +53,7 @@ namespace Beckend.Services
                 });
             }
 
-            // 2. Гравці (користувачі з роллю Player)
+            // 2. Гравці
             var players = await _userRepository.SearchPlayersAndCoachesAsync(searchTerm, null);
             foreach (var player in players.Where(p => p.Role == UserRole.Player))
             {

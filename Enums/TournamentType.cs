@@ -12,5 +12,4 @@
         Command,
         Individual
     }
-
 }

@@ -29,7 +29,7 @@ namespace Beckend.DTOs
         public DateTime? EndDate { get; set; }
         public string SportName { get; set; }
 
-        public string CreatedBy { get; set; }
+        public string? CreatedBy { get; set; }
         public int MaxParticipants { get; set; }
     }
 

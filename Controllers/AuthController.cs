@@ -5,8 +5,6 @@ using Beckend.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
-using BCrypt.Net;
-
 namespace Beckend.Controllers
 {
     [ApiController]
@@ -26,7 +24,6 @@ namespace Beckend.Controllers
             _tokenService = tokenService;
             _jwtSettings = jwtSettings.Value;
         }
-
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
@@ -34,10 +31,8 @@ namespace Beckend.Controllers
             var existingUser = await _users.Find(u => u.ContactInfo.Email == request.Email).FirstOrDefaultAsync();
             if (existingUser != null)
                 return BadRequest(new { message = "User already exists" });
-
             // Хешування паролю
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
-
             var nameParts = request.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             var user = new User
             {
@@ -50,12 +45,9 @@ namespace Beckend.Controllers
                     Password = passwordHash
                 }
             };
-
             await _users.InsertOneAsync(user);
-
             return Ok(new { message = "User registered successfully", userId = user.Id });
         }
-
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
@@ -63,19 +55,15 @@ namespace Beckend.Controllers
             var user = await _users.Find(u => u.ContactInfo.Email == request.Email).FirstOrDefaultAsync();
             if (user == null)
                 return Unauthorized(new { message = "Invalid email or password" });
-
             // Перевірка паролю
             if (string.IsNullOrEmpty(user.ContactInfo.Password))
                 return Unauthorized(new { message = "Invalid email or password" });
-
             bool isValid = BCrypt.Net.BCrypt.Verify(request.Password, user.ContactInfo.Password);
             if (!isValid)
                 return Unauthorized(new { message = "Invalid email or password" });
-
             // Генерація токенів
             var accessToken = _tokenService.GenerateAccessToken(user.ContactInfo, user);
             var (refreshToken, expires) = _tokenService.CreateRefreshTokenWithExpiry(_jwtSettings.RefreshTokenExpiryDays);
-
             // Зберігаємо сесію
             var session = new UserSession
             {
@@ -86,7 +74,6 @@ namespace Beckend.Controllers
                 IsActive = true
             };
             await _userSessions.InsertOneAsync(session);
-
             return Ok(new
             {
                 accessToken,
@@ -102,34 +89,27 @@ namespace Beckend.Controllers
                 }
             });
         }
-
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
         {
             if (string.IsNullOrEmpty(request.RefreshToken))
                 return BadRequest(new { message = "Refresh token is required" });
-
             // Пошук активної сесії за refresh token
             var session = await _userSessions
                 .Find(s => s.RefreshToken == request.RefreshToken && s.IsActive && s.RefreshTokenExpiry > DateTime.UtcNow)
                 .FirstOrDefaultAsync();
-
             if (session == null)
                 return Unauthorized(new { message = "Invalid or expired refresh token" });
-
             // Пошук користувача
             var user = await _users.Find(u => u.Id == session.UserId).FirstOrDefaultAsync();
             if (user == null)
                 return Unauthorized(new { message = "User not found" });
-
             // Деактивуємо стару сесію (одноразове використання refresh token)
             session.IsActive = false;
             await _userSessions.ReplaceOneAsync(s => s.Id == session.Id, session);
-
             // Генерація нових токенів
             var newAccessToken = _tokenService.GenerateAccessToken(user.ContactInfo, user);
             var (newRefreshToken, expires) = _tokenService.CreateRefreshTokenWithExpiry(_jwtSettings.RefreshTokenExpiryDays);
-
             // Створюємо нову сесію
             var newSession = new UserSession
             {
@@ -140,7 +120,6 @@ namespace Beckend.Controllers
                 IsActive = true
             };
             await _userSessions.InsertOneAsync(newSession);
-
             return Ok(new
             {
                 accessToken = newAccessToken,
@@ -148,13 +127,11 @@ namespace Beckend.Controllers
                 refreshTokenExpiry = expires
             });
         }
-
         [HttpPost("logout")]
         public async Task<IActionResult> Logout([FromBody] RefreshRequest request)
         {
             if (string.IsNullOrEmpty(request.RefreshToken))
                 return BadRequest(new { message = "Refresh token is required" });
-
             // Деактивуємо сесію при виході
             var session = await _userSessions.Find(s => s.RefreshToken == request.RefreshToken).FirstOrDefaultAsync();
             if (session != null)
@@ -162,7 +139,6 @@ namespace Beckend.Controllers
                 session.IsActive = false;
                 await _userSessions.ReplaceOneAsync(s => s.Id == session.Id, session);
             }
-
             return Ok(new { message = "Logged out successfully" });
         }
     }

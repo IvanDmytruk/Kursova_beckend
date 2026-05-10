@@ -17,13 +17,11 @@ namespace Beckend.Controllers
     {
         private readonly TournamentService _tournamentService;
         private readonly IMapper _mapper;
-
         public TournamentsController(TournamentService tournamentService, IMapper mapper)
         {
             _tournamentService = tournamentService;
             _mapper = mapper;
         }
-
         [HttpGet("byname/{name}")]
         public async Task<IActionResult> GetByName(string name)
         {
@@ -48,28 +46,24 @@ namespace Beckend.Controllers
             var tournaments = await _tournamentService.SearchTournamentsAsync(term);
             return Ok(tournaments);
         }
-
         [HttpGet("active")]
         public async Task<IActionResult> GetActive([FromQuery] SportName? sport = null)
         {
             var tournaments = await _tournamentService.GetActiveTournamentsAsync(sport);
             return Ok(tournaments);
         }
-
         [HttpGet("exists/{name}")]
         public async Task<IActionResult> CheckNameExists(string name)
         {
             var exists = await _tournamentService.TournamentNameExistsAsync(name);
             return Ok(new { name = name, exists = exists });
         }
-
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
             var tournaments = await _tournamentService.GetAllAsync();
             return Ok(tournaments);
         }
-
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
@@ -78,7 +72,6 @@ namespace Beckend.Controllers
                 return NotFound();
             return Ok(tournament);
         }
-
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateTournamentDto createDto)
         {
@@ -99,7 +92,6 @@ namespace Beckend.Controllers
                 return Conflict(ex.Message);
             }
         }
-
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] UpdateTournamentDto updateDto)
         {

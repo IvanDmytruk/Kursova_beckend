@@ -7,12 +7,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using MongoDB.Driver;
 using System.Text;
-
 var builder = WebApplication.CreateBuilder(args);
-
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 var url = $"http://0.0.0.0:{port}";
-
 // CORS 
 builder.Services.AddCors(options =>
 {
@@ -26,7 +23,6 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader();
     });
 });
-
 if (builder.Environment.IsDevelopment())
 {
     builder.WebHost.ConfigureKestrel(options =>
@@ -38,42 +34,32 @@ if (builder.Environment.IsDevelopment())
         });
     });
 }
-
 builder.Services.AddAutoMapper(typeof(MappingProfile));
 builder.Services.AddControllers();
-
 // MongoDB Connection
 var mongoConnectionString = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING")
     ?? builder.Configuration.GetConnectionString("MongoDB");
-
 if (string.IsNullOrEmpty(mongoConnectionString))
 {
     throw new InvalidOperationException("MongoDB connection string is not configured");
 }
-
 builder.Services.AddSingleton<IMongoClient>(sp => new MongoClient(mongoConnectionString));
 builder.Services.AddSingleton(sp =>
 {
     var client = sp.GetRequiredService<IMongoClient>();
     return client.GetDatabase("CreateadTournament");
 });
-
 // JWT Settings
 var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
     ?? builder.Configuration["JwtSettings:SecretKey"];
-
 var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
     ?? builder.Configuration["JwtSettings:Issuer"];
-
 var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
     ?? builder.Configuration["JwtSettings:Audience"];
-
 var jwtExpiryMinutes = int.Parse(Environment.GetEnvironmentVariable("JWT_ACCESS_TOKEN_EXPIRY_MINUTES")
     ?? builder.Configuration["JwtSettings:AccessTokenExpiryMinutes"] ?? "60");
-
 var jwtRefreshExpiryDays = int.Parse(Environment.GetEnvironmentVariable("JWT_REFRESH_TOKEN_EXPIRY_DAYS")
     ?? builder.Configuration["JwtSettings:RefreshTokenExpiryDays"] ?? "7");
-
 // Реєстрація JwtSettings
 builder.Services.Configure<JwtSettings>(options =>
 {
@@ -83,9 +69,7 @@ builder.Services.Configure<JwtSettings>(options =>
     options.AccessTokenExpiryMinutes = jwtExpiryMinutes;
     options.RefreshTokenExpiryDays = jwtRefreshExpiryDays;
 });
-
 builder.Services.AddScoped<TokenService>();
-
 // Репозиторії
 builder.Services.AddScoped<UserRepository>();
 builder.Services.AddScoped<TournamentRepository>();
@@ -93,7 +77,6 @@ builder.Services.AddScoped<TeamRepository>();
 builder.Services.AddScoped<MatchRepository>();
 builder.Services.AddScoped<StatisticRepository>();
 builder.Services.AddScoped<SportRepository>();
-
 // Сервіси
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<TournamentService>();
@@ -102,7 +85,6 @@ builder.Services.AddScoped<MatchService>();
 builder.Services.AddScoped<StatisticService>();
 builder.Services.AddScoped<SportService>();
 builder.Services.AddScoped<SearchService>();
-
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -114,7 +96,6 @@ builder.Services.AddSwaggerGen(c =>
         Description = "API for managing tournaments, teams, and users"
     });
 });
-
 // Аутентифікація JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -130,9 +111,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey ?? ""))
         };
     });
-
 builder.Services.AddAuthorization();
-
 var app = builder.Build();
 app.UseCors("AllowVercel");
 if (app.Environment.IsDevelopment())
@@ -144,10 +123,8 @@ if (app.Environment.IsDevelopment())
         c.RoutePrefix = "swagger";
     });
 }
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 app.Use(async (context, next) =>
 {

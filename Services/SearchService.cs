@@ -54,7 +54,7 @@ namespace Beckend.Services
             }
 
             // 2. Гравці
-            var players = await _userRepository.SearchPlayersAndCoachesAsync(searchTerm, null);
+            var players = await _userRepository.SearchPlayersAndCoachesAsync(searchTerm);
             foreach (var player in players.Where(p => p.Role == UserRole.Player))
             {
                 var popularityScore = 0;

@@ -27,9 +27,9 @@ namespace Beckend.Repositories
                 new MongoDB.Bson.BsonRegularExpression(searchTerm, "i")
             );
 
-            var fullNameFilter = Builders<User>.Filter.Or(nameFilter, surnameFilter);
+            var searchFilter = Builders<User>.Filter.Or(nameFilter, surnameFilter);
 
-            var filter = Builders<User>.Filter.And(roleFilter, fullNameFilter);
+            var filter = Builders<User>.Filter.And(roleFilter, searchFilter);
 
             return await _collection.Find(filter).ToListAsync();
         }

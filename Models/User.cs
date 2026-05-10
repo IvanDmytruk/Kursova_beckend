@@ -78,5 +78,7 @@ namespace Beckend.Models
         public List<string> SavedTeams { get; set; } = new List<string>();
         [BsonElement("SavedTournaments")]
         public List<string> SavedTournaments { get; set; } = new List<string>();
+        [BsonElement("SavedPlayers")]
+        public List<string> SavedPlayers { get; set; } = new List<string>();
     }
 }

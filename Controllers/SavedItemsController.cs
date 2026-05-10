@@ -97,5 +97,30 @@ namespace Beckend.Controllers
             await _savedItems.UpdateOneAsync(s => s.UserId == userId, update);
             return Ok(new { success = true });
         }
+        [HttpPost("players/{playerId}")]
+        public async Task<IActionResult> SavePlayer(string playerId)
+        {
+            var userId = GetUserId();
+            if (userId == "unknown") return Unauthorized();
+
+            var update = Builders<UserSavedItems>.Update.AddToSet(s => s.SavedPlayers, playerId);
+            await _savedItems.UpdateOneAsync(
+                s => s.UserId == userId,
+                update,
+                new UpdateOptions { IsUpsert = true }
+            );
+            return Ok(new { success = true });
+        }
+
+        [HttpDelete("players/{playerId}")]
+        public async Task<IActionResult> RemoveSavedPlayer(string playerId)
+        {
+            var userId = GetUserId();
+            if (userId == "unknown") return Unauthorized();
+
+            var update = Builders<UserSavedItems>.Update.Pull(s => s.SavedPlayers, playerId);
+            await _savedItems.UpdateOneAsync(s => s.UserId == userId, update);
+            return Ok(new { success = true });
+        }
     }
 }

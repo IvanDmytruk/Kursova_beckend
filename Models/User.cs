@@ -1,6 +1,7 @@
-﻿using MongoDB.Bson;
+﻿using Beckend.Enums;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
-using Beckend.Enums;
+using System.Runtime.CompilerServices;
 namespace Beckend.Models
 {
     public class ContactInfo
@@ -33,6 +34,11 @@ namespace Beckend.Models
         {
             Id = ObjectId.GenerateNewId().ToString();
         }
+        [BsonElement("IsBanned")]
+        public bool IsBanned { get; set; } = false;
+
+        [BsonElement("BannedUntil")]
+        public DateTime? BannedUntil { get; set; }
     }
     public class PlayerProfile
     {
@@ -81,4 +87,64 @@ namespace Beckend.Models
         [BsonElement("SavedPlayers")]
         public List<string> SavedPlayers { get; set; } = new List<string>();
     }
+    public class RoleRequest
+    {
+        [BsonId]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string Id { get; set; } = string.Empty;
+
+        [BsonElement("UserId")]
+        public string UserId { get; set; } = string.Empty;
+
+        [BsonElement("RequestedRole")]
+        public string RequestedRole { get; set; } = string.Empty;
+
+        [BsonElement("Status")]
+        public string Status { get; set; } = "Pending";
+
+        [BsonElement("CreatedAt")]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [BsonElement("UserEmail")]
+        public string UserEmail { get; set; } = string.Empty;
+
+        [BsonElement("UserName")]
+        public string UserName { get; set; } = string.Empty;
+    }
+    public class UserBan
+    {
+        [BsonId]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string Id { get; set; } = string.Empty;
+
+        [BsonElement("UserId")]
+        public string UserId { get; set; } = string.Empty;
+
+        [BsonElement("BannedUntil")]
+        public DateTime BannedUntil { get; set; }
+
+        [BsonElement("Reason")]
+        public string Reason { get; set; } = string.Empty;
+
+        [BsonElement("BannedBy")]
+        public string BannedBy { get; set; } = string.Empty;
+
+        [BsonElement("CreatedAt")]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [BsonElement("IsActive")]
+        public bool IsActive { get; set; } = true;
+
+        public bool IsBannedActive()
+        {
+            if (!IsActive) return false;
+            if (BannedUntil < DateTime.UtcNow)
+            {
+                IsActive = false; 
+                return false;
+            }
+            return true;
+        }
+    }
+
 }

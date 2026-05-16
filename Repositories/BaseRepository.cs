@@ -26,6 +26,7 @@ namespace Beckend.Repositories
                 return null;
 
             return await _collection.Find(Builders<T>.Filter.Eq("_id", objectId)).FirstOrDefaultAsync();
+        }
         public async Task CreateAsync(T entity) =>
             await _collection.InsertOneAsync(entity);
         public async Task UpdateAsync(string id, T entity)

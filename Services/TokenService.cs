@@ -8,26 +8,44 @@ using System.Security.Cryptography;
 using System.Text;
 
 namespace Beckend.Services
-{ 
+{
     public class TokenService
     {
         private readonly JwtSettings _jwt;
 
-        public TokenService(IOptions<JwtSettings> jwtOptions)
+        public TokenService(IOptions<JwtSettings> options)
         {
-            _jwt = jwtOptions.Value;
+            _jwt = options.Value;
+            if (_jwt.AccessTokenExpiryMinutes <= 0 ||
+    _jwt.RefreshTokenExpiryDays <= 0)
+            {
+                throw new InvalidOperationException(
+                    "JWT token expiration settings must be positive.");
+            }
+        }
+        public string HashRefreshToken(string refreshToken)
+        {
+            var bytes = Encoding.UTF8.GetBytes(refreshToken);
+            var hash = SHA256.HashData(bytes);
 
-            Console.WriteLine($"TokenService initialized. SecretKey length: {_jwt?.SecretKey?.Length ?? 0}");
+            return Convert.ToHexString(hash);
         }
 
         public string GenerateAccessToken(ContactInfo info, User user)
         {
-            if (_jwt == null)
-                throw new InvalidOperationException("JwtSettings is null");
+            if (string.IsNullOrWhiteSpace(_jwt.SecretKey) ||
+    Encoding.UTF8.GetByteCount(_jwt.SecretKey) < 32)
+            {
+                throw new InvalidOperationException(
+                    "JWT secret must contain at least 32 bytes.");
+            }
 
-            if (string.IsNullOrEmpty(_jwt.SecretKey))
-                throw new InvalidOperationException("JwtSettings.SecretKey is empty");
-
+            if (string.IsNullOrWhiteSpace(_jwt.Issuer) ||
+                string.IsNullOrWhiteSpace(_jwt.Audience))
+            {
+                throw new InvalidOperationException(
+                    "JWT issuer and audience must be configured.");
+            }
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.SecretKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
@@ -57,10 +75,11 @@ namespace Beckend.Services
             return Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         }
 
-        public (string token, DateTime expires) CreateRefreshTokenWithExpiry(int refreshDays)
+        public (string token, DateTime expires) CreateRefreshTokenWithExpiry()
         {
             var token = GenerateRefreshToken();
-            var expires = DateTime.UtcNow.AddDays(refreshDays);
+            var expires = DateTime.UtcNow.AddDays(_jwt.RefreshTokenExpiryDays);
+
             return (token, expires);
         }
     }

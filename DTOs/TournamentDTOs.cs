@@ -16,6 +16,7 @@ namespace Beckend.DTOs
         public int NumberOfParticipants { get; set; }
         public string SportName { get; set; }
         public int MaxParticipants { get; set; }
+        public string CreatedBy { get; set; } = string.Empty;
     }
 
     public class CreateTournamentDto

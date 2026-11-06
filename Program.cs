@@ -10,7 +10,7 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 var url = $"http://0.0.0.0:{port}";
-// CORS 
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowVercel", policy =>
@@ -36,7 +36,6 @@ if (builder.Environment.IsDevelopment())
 }
 builder.Services.AddAutoMapper(typeof(MappingProfile));
 builder.Services.AddControllers();
-// MongoDB Connection
 var mongoConnectionString = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING")
     ?? builder.Configuration.GetConnectionString("MongoDB");
 if (string.IsNullOrEmpty(mongoConnectionString))
@@ -49,7 +48,6 @@ builder.Services.AddSingleton(sp =>
     var client = sp.GetRequiredService<IMongoClient>();
     return client.GetDatabase("CreateadTournament");
 });
-// JWT Settings
 var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
     ?? builder.Configuration["JwtSettings:SecretKey"];
 var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
@@ -60,7 +58,6 @@ var jwtExpiryMinutes = int.Parse(Environment.GetEnvironmentVariable("JWT_ACCESS_
     ?? builder.Configuration["JwtSettings:AccessTokenExpiryMinutes"] ?? "60");
 var jwtRefreshExpiryDays = int.Parse(Environment.GetEnvironmentVariable("JWT_REFRESH_TOKEN_EXPIRY_DAYS")
     ?? builder.Configuration["JwtSettings:RefreshTokenExpiryDays"] ?? "7");
-// Реєстрація JwtSettings
 builder.Services.Configure<JwtSettings>(options =>
 {
     options.SecretKey = jwtSecretKey;
@@ -70,14 +67,13 @@ builder.Services.Configure<JwtSettings>(options =>
     options.RefreshTokenExpiryDays = jwtRefreshExpiryDays;
 });
 builder.Services.AddScoped<TokenService>();
-// Репозиторії
 builder.Services.AddScoped<UserRepository>();
 builder.Services.AddScoped<TournamentRepository>();
 builder.Services.AddScoped<TeamRepository>();
 builder.Services.AddScoped<MatchRepository>();
 builder.Services.AddScoped<StatisticRepository>();
 builder.Services.AddScoped<SportRepository>();
-// Сервіси
+
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<TournamentService>();
 builder.Services.AddScoped<TeamService>();
@@ -85,7 +81,6 @@ builder.Services.AddScoped<MatchService>();
 builder.Services.AddScoped<StatisticService>();
 builder.Services.AddScoped<SportService>();
 builder.Services.AddScoped<SearchService>();
-// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -96,23 +91,53 @@ builder.Services.AddSwaggerGen(c =>
         Description = "API for managing tournaments, teams, and users"
     });
 });
-// Аутентифікація JWT
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtIssuer,
-            ValidAudience = jwtAudience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey ?? ""))
-        };
+        options.MapInboundClaims = false;
+
+        options.TokenValidationParameters =
+            new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+
+                ValidIssuer = jwtIssuer,
+                ValidAudience = jwtAudience,
+
+                IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(jwtSecretKey!)),
+
+                ClockSkew = TimeSpan.Zero,
+
+                NameClaimType =
+                    System.Security.Claims.ClaimTypes.Name,
+
+                RoleClaimType =
+                    System.Security.Claims.ClaimTypes.Role
+            };
     });
+
 builder.Services.AddAuthorization();
 var app = builder.Build();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler(exceptionApp =>
+    {
+        exceptionApp.Run(async context =>
+        {
+            context.Response.StatusCode = 500;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                message = "Internal server error"
+            });
+        });
+    });
+}
 app.UseCors("AllowVercel");
 if (app.Environment.IsDevelopment())
 {
@@ -126,19 +151,4 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.Use(async (context, next) =>
-{
-    try
-    {
-        await next();
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"ERROR: {ex.Message}");
-        Console.WriteLine($"STACK: {ex.StackTrace}");
-        context.Response.StatusCode = 500;
-        context.Response.ContentType = "text/plain";
-        await context.Response.WriteAsync($"Internal error: {ex.Message}");
-    }
-});
 app.Run(url);

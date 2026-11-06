@@ -60,17 +60,29 @@ namespace Beckend.Models
         [BsonElement("HireDate")] 
         public DateTime? HireDate { get; set; }
     }
+
     public class UserSession
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; } = string.Empty;
+
+        [BsonElement("UserId")]
         public string UserId { get; set; } = string.Empty;
-        public string RefreshToken { get; set; } = string.Empty;
+
+        [BsonElement("RefreshTokenHash")]
+        public string RefreshTokenHash { get; set; } = string.Empty;
+
+        [BsonElement("RefreshTokenExpiry")]
         public DateTime RefreshTokenExpiry { get; set; }
+
+        [BsonElement("CreatedAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [BsonElement("IsActive")]
         public bool IsActive { get; set; } = true;
     }
+
     public class UserSavedItems
     {
         [BsonId]

@@ -1,10 +1,11 @@
-﻿using Beckend.Enums;
+﻿
+using Beckend.Enums;
 using Beckend.JWT;
 using Beckend.Models;
 using Beckend.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+
 namespace Beckend.Controllers
 {
     [ApiController]
@@ -14,26 +15,58 @@ namespace Beckend.Controllers
         private readonly IMongoCollection<User> _users;
         private readonly IMongoCollection<UserSession> _userSessions;
         private readonly TokenService _tokenService;
-        private readonly JwtSettings _jwtSettings;
 
-        public AuthController(IMongoClient client, TokenService tokenService, IOptions<JwtSettings> jwtSettings)
+        public AuthController(
+            IMongoDatabase database,
+            TokenService tokenService)
         {
-            var database = client.GetDatabase("CreateadTournament");
             _users = database.GetCollection<User>("Users");
-            _userSessions = database.GetCollection<UserSession>("UserSessions");
+            _userSessions =
+                database.GetCollection<UserSession>("UserSessions");
             _tokenService = tokenService;
-            _jwtSettings = jwtSettings.Value;
         }
-        [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+
+        private static bool IsUserBanned(User user)
         {
-            // Перевірка чи існує користувач
-            var existingUser = await _users.Find(u => u.ContactInfo.Email == request.Email).FirstOrDefaultAsync();
+            if (!user.IsBanned)
+                return false;
+
+            return !user.BannedUntil.HasValue ||
+                   user.BannedUntil.Value > DateTime.UtcNow;
+        }
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register(
+            [FromBody] RegisterRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.FullName) ||
+                string.IsNullOrWhiteSpace(request.Email) ||
+                string.IsNullOrWhiteSpace(request.Password))
+            {
+                return BadRequest(new
+                {
+                    message = "All fields are required"
+                });
+            }
+
+            var email = request.Email.Trim().ToLowerInvariant();
+
+            var existingUser = await _users
+                .Find(u => u.ContactInfo.Email == email)
+                .FirstOrDefaultAsync();
+
             if (existingUser != null)
-                return BadRequest(new { message = "User already exists" });
-            // Хешування паролю
-            string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
-            var nameParts = request.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            {
+                return BadRequest(new
+                {
+                    message = "User already exists"
+                });
+            }
+
+            var nameParts = request.FullName.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries);
+
             var user = new User
             {
                 Surname = nameParts.Length > 0 ? nameParts[0] : "",
@@ -41,39 +74,79 @@ namespace Beckend.Controllers
                 Role = UserRole.User,
                 ContactInfo = new ContactInfo
                 {
-                    Email = request.Email,
-                    Password = passwordHash
+                    Email = email,
+                    Password = BCrypt.Net.BCrypt.HashPassword(
+                        request.Password)
                 }
             };
+
             await _users.InsertOneAsync(user);
-            return Ok(new { message = "User registered successfully", userId = user.Id });
+
+            return Ok(new
+            {
+                message = "User registered successfully",
+                userId = user.Id
+            });
         }
+
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequest request)
+        public async Task<IActionResult> Login(
+            [FromBody] LoginRequest request)
         {
-            // Пошук користувача за email
-            var user = await _users.Find(u => u.ContactInfo.Email == request.Email).FirstOrDefaultAsync();
-            if (user == null)
-                return Unauthorized(new { message = "Invalid email or password" });
-            // Перевірка паролю
-            if (string.IsNullOrEmpty(user.ContactInfo.Password))
-                return Unauthorized(new { message = "Invalid email or password" });
-            bool isValid = BCrypt.Net.BCrypt.Verify(request.Password, user.ContactInfo.Password);
-            if (!isValid)
-                return Unauthorized(new { message = "Invalid email or password" });
-            // Генерація токенів
-            var accessToken = _tokenService.GenerateAccessToken(user.ContactInfo, user);
-            var (refreshToken, expires) = _tokenService.CreateRefreshTokenWithExpiry(_jwtSettings.RefreshTokenExpiryDays);
-            // Зберігаємо сесію
+            if (string.IsNullOrWhiteSpace(request.Email) ||
+                string.IsNullOrWhiteSpace(request.Password))
+            {
+                return Unauthorized(new
+                {
+                    message = "Invalid email or password"
+                });
+            }
+
+            var email = request.Email.Trim().ToLowerInvariant();
+
+            var user = await _users
+                .Find(u => u.ContactInfo.Email == email)
+                .FirstOrDefaultAsync();
+
+            if (user == null ||
+                string.IsNullOrEmpty(user.ContactInfo?.Password) ||
+                !BCrypt.Net.BCrypt.Verify(
+                    request.Password,
+                    user.ContactInfo.Password))
+            {
+                return Unauthorized(new
+                {
+                    message = "Invalid email or password"
+                });
+            }
+
+            if (IsUserBanned(user))
+            {
+                return StatusCode(403, new
+                {
+                    message = "Your account is banned"
+                });
+            }
+
+            var accessToken =
+                _tokenService.GenerateAccessToken(
+                    user.ContactInfo, user);
+
+            var (refreshToken, expires) =
+                _tokenService.CreateRefreshTokenWithExpiry();
+
             var session = new UserSession
             {
                 UserId = user.Id,
-                RefreshToken = refreshToken,
+                RefreshTokenHash =
+                    _tokenService.HashRefreshToken(refreshToken),
                 RefreshTokenExpiry = expires,
                 CreatedAt = DateTime.UtcNow,
                 IsActive = true
             };
+
             await _userSessions.InsertOneAsync(session);
+
             return Ok(new
             {
                 accessToken,
@@ -89,37 +162,87 @@ namespace Beckend.Controllers
                 }
             });
         }
+
         [HttpPost("refresh")]
-        public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
+        public async Task<IActionResult> Refresh(
+            [FromBody] RefreshRequest request)
         {
-            if (string.IsNullOrEmpty(request.RefreshToken))
-                return BadRequest(new { message = "Refresh token is required" });
-            // Пошук активної сесії за refresh token
-            var session = await _userSessions
-                .Find(s => s.RefreshToken == request.RefreshToken && s.IsActive && s.RefreshTokenExpiry > DateTime.UtcNow)
-                .FirstOrDefaultAsync();
-            if (session == null)
-                return Unauthorized(new { message = "Invalid or expired refresh token" });
-            // Пошук користувача
-            var user = await _users.Find(u => u.Id == session.UserId).FirstOrDefaultAsync();
-            if (user == null)
-                return Unauthorized(new { message = "User not found" });
-            // Деактивуємо стару сесію (одноразове використання refresh token)
-            session.IsActive = false;
-            await _userSessions.ReplaceOneAsync(s => s.Id == session.Id, session);
-            // Генерація нових токенів
-            var newAccessToken = _tokenService.GenerateAccessToken(user.ContactInfo, user);
-            var (newRefreshToken, expires) = _tokenService.CreateRefreshTokenWithExpiry(_jwtSettings.RefreshTokenExpiryDays);
-            // Створюємо нову сесію
-            var newSession = new UserSession
+            if (string.IsNullOrWhiteSpace(request.RefreshToken))
             {
-                UserId = user.Id,
-                RefreshToken = newRefreshToken,
-                RefreshTokenExpiry = expires,
-                CreatedAt = DateTime.UtcNow,
-                IsActive = true
-            };
-            await _userSessions.InsertOneAsync(newSession);
+                return BadRequest(new
+                {
+                    message = "Refresh token is required"
+                });
+            }
+
+            var oldHash =
+                _tokenService.HashRefreshToken(request.RefreshToken);
+
+            var now = DateTime.UtcNow;
+            var session = await _userSessions
+                .Find(s =>
+                    s.RefreshTokenHash == oldHash &&
+                    s.IsActive &&
+                    s.RefreshTokenExpiry > now)
+                .FirstOrDefaultAsync();
+
+            if (session == null)
+            {
+                return Unauthorized(new
+                {
+                    message = "Invalid or expired refresh token"
+                });
+            }
+
+            var user = await _users
+                .Find(u => u.Id == session.UserId)
+                .FirstOrDefaultAsync();
+
+            if (user == null || IsUserBanned(user))
+            {
+                return Unauthorized(new
+                {
+                    message = "Session is no longer valid"
+                });
+            }
+
+            var (newRefreshToken, expires) =
+                _tokenService.CreateRefreshTokenWithExpiry();
+
+            var newHash =
+                _tokenService.HashRefreshToken(newRefreshToken);
+            var filter = Builders<UserSession>.Filter.And(
+                Builders<UserSession>.Filter.Eq(
+                    s => s.Id, session.Id),
+                Builders<UserSession>.Filter.Eq(
+                    s => s.RefreshTokenHash, oldHash),
+                Builders<UserSession>.Filter.Eq(
+                    s => s.IsActive, true),
+                Builders<UserSession>.Filter.Gt(
+                    s => s.RefreshTokenExpiry, DateTime.UtcNow)
+            );
+
+            var update = Builders<UserSession>.Update
+                .Set(s => s.RefreshTokenHash, newHash)
+                .Set(s => s.RefreshTokenExpiry, expires);
+
+            var updatedSession =
+                await _userSessions.FindOneAndUpdateAsync(
+                    filter,
+                    update);
+
+            if (updatedSession == null)
+            {
+                return Unauthorized(new
+                {
+                    message = "Refresh token already used"
+                });
+            }
+
+            var newAccessToken =
+                _tokenService.GenerateAccessToken(
+                    user.ContactInfo, user);
+
             return Ok(new
             {
                 accessToken = newAccessToken,
@@ -127,19 +250,28 @@ namespace Beckend.Controllers
                 refreshTokenExpiry = expires
             });
         }
+
         [HttpPost("logout")]
-        public async Task<IActionResult> Logout([FromBody] RefreshRequest request)
+        public async Task<IActionResult> Logout(
+            [FromBody] RefreshRequest request)
         {
-            if (string.IsNullOrEmpty(request.RefreshToken))
-                return BadRequest(new { message = "Refresh token is required" });
-            // Деактивуємо сесію при виході
-            var session = await _userSessions.Find(s => s.RefreshToken == request.RefreshToken).FirstOrDefaultAsync();
-            if (session != null)
+            if (!string.IsNullOrWhiteSpace(request.RefreshToken))
             {
-                session.IsActive = false;
-                await _userSessions.ReplaceOneAsync(s => s.Id == session.Id, session);
+                var hash = _tokenService.HashRefreshToken(
+                    request.RefreshToken);
+
+                await _userSessions.UpdateOneAsync(
+                    s => s.RefreshTokenHash == hash &&
+                         s.IsActive,
+                    Builders<UserSession>.Update
+                        .Set(s => s.IsActive, false)
+                );
             }
-            return Ok(new { message = "Logged out successfully" });
+
+            return Ok(new
+            {
+                message = "Logged out successfully"
+            });
         }
     }
 }

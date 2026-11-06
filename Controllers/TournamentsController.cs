@@ -1,10 +1,12 @@
-﻿using Beckend.DTOs;
+﻿using AutoMapper;
+using Beckend.DTOs;
 using Beckend.Enums;
 using Beckend.Models;
 using Beckend.Services;
-using AutoMapper;
-using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 public class RegisterForTournamentRequest
 {
     public string TeamId { get; set; } = string.Empty;
@@ -72,32 +74,71 @@ namespace Beckend.Controllers
                 return NotFound();
             return Ok(tournament);
         }
+        [Authorize]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateTournamentDto createDto)
         {
             try
             {
-                var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+                var userId =
+    User.FindFirstValue(ClaimTypes.NameIdentifier)
+    ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new
+                    {
+                        message = "User ID not found in token"
+                    });
+                }
+
                 createDto.CreatedBy = userId;
 
                 var created = await _tournamentService.CreateAsync(createDto);
-                return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+
+                return CreatedAtAction(
+                    nameof(GetById),
+                    new { id = created.Id },
+                    created);
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new { message = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
-                return Conflict(ex.Message);
+                return Conflict(new { message = ex.Message });
             }
         }
+        [Authorize]
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(string id, [FromBody] UpdateTournamentDto updateDto)
+        public async Task<IActionResult> Update(
+            string id,
+            [FromBody] UpdateTournamentDto updateDto)
         {
             try
             {
-                var updated = await _tournamentService.UpdateAsync(id, updateDto);
+                var userId =
+                    User.FindFirstValue(ClaimTypes.NameIdentifier)
+                    ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized();
+
+                var tournament = await _tournamentService.GetByIdAsync(id);
+
+                if (tournament == null)
+                    return NotFound();
+
+                if (tournament.CreatedBy != userId &&
+                    !User.IsInRole("Admin"))
+                {
+                    return Forbid();
+                }
+
+                var updated = await _tournamentService.UpdateAsync(
+                    id, updateDto);
+
                 return Ok(updated);
             }
             catch (KeyNotFoundException)
@@ -106,19 +147,23 @@ namespace Beckend.Controllers
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new { message = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
-                return Conflict(ex.Message);
+                return Conflict(new { message = ex.Message });
             }
         }
+        [Authorize]
         [HttpPost("{tournamentId}/register")]
         public async Task<IActionResult> RegisterForTournament(string tournamentId, [FromBody] RegisterForTournamentRequest request)
         {
             try
             {
-                var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+                var userId =
+                    User.FindFirstValue(ClaimTypes.NameIdentifier)
+                    ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
                 if (string.IsNullOrEmpty(userId))
                     return Unauthorized("User not authenticated");
 
@@ -157,12 +202,33 @@ namespace Beckend.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+        [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
+            var userId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var tournament = await _tournamentService.GetByIdAsync(id);
+
+            if (tournament == null)
+                return NotFound();
+
+            if (tournament.CreatedBy != userId &&
+                !User.IsInRole("Admin"))
+            {
+                return Forbid();
+            }
+
             var deleted = await _tournamentService.DeleteAsync(id);
+
             if (!deleted)
                 return NotFound();
+
             return NoContent();
         }
 

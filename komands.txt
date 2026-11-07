@@ -1,0 +1,17 @@
+$token = Read-Host "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2YWRhNmZkMzI4NGRhM2M2ZWIzZmY1MzciLCJlbWFpbCI6Iml2YW50b3A2MjU2MzhAZ21haWwuY29tIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6ItCU0LzQuNGC0YDRg9C6INCG0LLQsNC9IiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvc3VybmFtZSI6ItCU0LzQuNGC0YDRg9C6IiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvZ2l2ZW5uYW1lIjoi0IbQstCw0L0iLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOiJVc2VyIiwianRpIjoiZDlmMmI2ZTktYTJkNy00Yjk3LTkyMzktZTNkZDA3MTI4ZTgzIiwiZXhwIjoxNzk0MDQ1MTA3LCJpc3MiOiJTcG9ydEh1YiIsImF1ZCI6IlNwb3J0SHViVXNlcnMifQ.0xtMilYD2KRBsnketbo9w-q8Pp708vxacYtVWD5qPkE",
+  "refreshToken": "44C6lfdEtOaeF72xFgXP1B4nCpSXeQG24QjVDPGCjfPE0bIfi+DDIy75mQ0DzVSgitfRx6OL3wvzhH735hQNyg=="
+
+$headers = @{
+    Authorization = "Bearer $token"
+}
+
+$body = @{
+    status = "Registration"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+    -Uri "http://localhost:5036/api/Tournaments/6aec5eb5963b45117b5b7fa5/status" `
+    -Method Patch `
+    -Headers $headers `
+    -ContentType "application/json" `
+    -Body $body

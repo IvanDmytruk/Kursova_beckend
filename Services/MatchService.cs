@@ -4,6 +4,7 @@ using Beckend.DTOs;
 using Beckend.Enums;
 using Beckend.Models;
 using Beckend.Repositories;
+using Beckend.Services.TournamentGenerators;
 
 namespace Beckend.Services
 {
@@ -11,10 +12,18 @@ namespace Beckend.Services
     {
         private readonly MatchRepository _matchRepository;
         private readonly IMapper _mapper;
+        private readonly TournamentRepository _tournamentRepository;
+        private readonly RoundRobinGenerator _roundRobinGenerator;
 
-        public MatchService(MatchRepository matchRepository, IMapper mapper)
+        public MatchService(
+            MatchRepository matchRepository,
+            TournamentRepository tournamentRepository,
+            RoundRobinGenerator roundRobinGenerator,
+            IMapper mapper)
         {
             _matchRepository = matchRepository;
+            _tournamentRepository = tournamentRepository;
+            _roundRobinGenerator = roundRobinGenerator;
             _mapper = mapper;
         }
 
@@ -163,6 +172,42 @@ namespace Beckend.Services
             var matchDtos = _mapper.Map<List<MatchDto>>(matches);
             return matchDtos;
         }
+
+        public async Task<List<MatchDto>> GenerateRoundRobinAsync(
+            string tournamentId)
+        {
+            var tournament = await _tournamentRepository
+                .GetByIdAsync(tournamentId);
+
+            if (tournament == null)
+                throw new KeyNotFoundException("Tournament not found");
+
+            if (tournament.Status != TournamentStatus.Ready)
+                throw new InvalidOperationException(
+                    "Tournament must have Ready status");
+
+            if (tournament.TournamentType != TournamentType.RoundRobin)
+                throw new InvalidOperationException(
+                    "Tournament must use Round Robin format");
+
+            if (tournament.TournamentParticipants.Count < 2)
+                throw new InvalidOperationException(
+                    "At least 2 participants are required");
+
+            var existingMatches = await _matchRepository
+                .GetMatchesByTournamentIdAsync(tournamentId);
+
+            if (existingMatches.Count > 0)
+                throw new InvalidOperationException(
+                    "Matches have already been created for this tournament");
+
+            var matches = _roundRobinGenerator.Generate(tournament);
+
+            await _matchRepository.CreateManyAsync(matches);
+
+            return _mapper.Map<List<MatchDto>>(matches);
+        }
+
 
     }
 }

@@ -5,7 +5,7 @@ namespace Beckend.Repositories
 {
     public class StatisticRepository : BaseRepository<Statistic>
     {
-        public StatisticRepository(IConfiguration config) : base(config, "Statistics") { }
+        public StatisticRepository(IMongoDatabase database) : base(database, "Statistics") { }
 
         // Отримати статистику за UserId
         public async Task<List<Statistic>> GetStatisticsByUserIdAsync(string userId)

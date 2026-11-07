@@ -6,7 +6,7 @@ namespace Beckend.Repositories
 {
     public class SportRepository : BaseRepository<Sport>
     {
-        public SportRepository(IConfiguration config) : base(config, "Sports") { }
+        public SportRepository(IMongoDatabase database) : base(database, "Sports") { }
 
         // Пошук за назвою виду спорту
         public async Task<Sport?> GetSportByNameAsync(SportName sportName)

@@ -6,7 +6,7 @@ namespace Beckend.Repositories
 {
     public class UserRepository: BaseRepository<User>
     {
-        public UserRepository(IConfiguration config) : base(config, "Users") { }
+        public UserRepository(IMongoDatabase database) : base(database, "Users") { }
         public async Task<List<User>> SearchPlayersAndCoachesAsync(string? searchTerm)
         {
             if (string.IsNullOrWhiteSpace(searchTerm))

@@ -27,23 +27,65 @@ namespace Beckend.Mappings
             CreateMap<CreateTeamDto, Team>();
             CreateMap<UpdateTeamDto, Team>();
 
-            // TOURNAMENT MAPPINGS 
+            // TOURNAMENT MAPPINGS
             CreateMap<Tournament, TournamentDto>()
-                .ForMember(dest => dest.TournamentType, opt => opt.MapFrom(src => src.TournamentType.ToString()))
-                .ForMember(dest => dest.Format, opt => opt.MapFrom(src => src.Format.ToString()));
+                .ForMember(d => d.TournamentType,
+                    o => o.MapFrom(s => s.TournamentType.ToString()))
+                .ForMember(d => d.Format,
+                    o => o.MapFrom(s => s.Format.ToString()))
+                .ForMember(d => d.SportName,
+                    o => o.MapFrom(s => s.SportName.ToString()))
+                .ForMember(d => d.Status,
+                    o => o.MapFrom(s => s.Status.ToString()));
 
             CreateMap<CreateTournamentDto, Tournament>()
-                .ForMember(dest => dest.TournamentType, opt => opt.MapFrom(src => Enum.Parse<TournamentType>(src.TournamentType)))
-                .ForMember(dest => dest.Format, opt => opt.MapFrom(src => Enum.Parse<TournamentFormat>(src.Format)));
+                .ForMember(d => d.Id, o => o.Ignore())
+                .ForMember(d => d.TournamentType,
+                    o => o.MapFrom(s =>
+                        Enum.Parse<TournamentType>(s.TournamentType, true)))
+                .ForMember(d => d.Format,
+                    o => o.MapFrom(s =>
+                        Enum.Parse<TournamentFormat>(s.Format, true)))
+                .ForMember(d => d.SportName,
+                    o => o.MapFrom(s =>
+                        Enum.Parse<SportName>(s.SportName, true)));
 
             CreateMap<UpdateTournamentDto, Tournament>()
-                .ForMember(dest => dest.TournamentType, opt => opt.MapFrom(src => Enum.Parse<TournamentType>(src.TournamentType)))
-                .ForMember(dest => dest.Format, opt => opt.MapFrom(src => Enum.Parse<TournamentFormat>(src.Format)));
+                .ForMember(d => d.Id, o => o.Ignore())
+                .ForMember(d => d.CreatedBy, o => o.Ignore())
+                .ForMember(d => d.TournamentParticipants, o => o.Ignore())
+                .ForMember(d => d.TournamentType,
+                    o => o.MapFrom(s =>
+                        Enum.Parse<TournamentType>(s.TournamentType, true)))
+                .ForMember(d => d.Format,
+                    o => o.MapFrom(s =>
+                        Enum.Parse<TournamentFormat>(s.Format, true)))
+                .ForMember(d => d.SportName,
+                    o => o.MapFrom(s =>
+                        Enum.Parse<SportName>(s.SportName, true)))
+                .ForMember(d => d.Status, o => o.Ignore())
+                .ForMember(d => d.CreatedBy, o => o.Ignore())
+                .ForMember(d => d.TournamentParticipants, o => o.Ignore())
+                .ForMember(d => d.Id, o => o.Ignore());
 
-            // MATCH MAPPINGS 
-            CreateMap<Match, MatchDto>();
-            CreateMap<CreateMatchDto, Match>();
-            CreateMap<UpdateMatchDto, Match>();
+            // MATCH MAPPINGS
+            CreateMap<Match, MatchDto>()
+                .ForMember(d => d.SportName,
+                    o => o.MapFrom(s => s.SportName.ToString()))
+                .ForMember(d => d.Status,
+                    o => o.MapFrom(s => s.Status.ToString()));
+
+            CreateMap<CreateMatchDto, Match>()
+                .ForMember(d => d.Id, o => o.Ignore())
+                .ForMember(d => d.SportName,
+                    o => o.MapFrom(s =>
+                        Enum.Parse<SportName>(s.SportName, true)));
+
+            CreateMap<UpdateMatchDto, Match>()
+                .ForMember(d => d.Id, o => o.Ignore())
+                .ForMember(d => d.SportName,
+                    o => o.MapFrom(s =>
+                        Enum.Parse<SportName>(s.SportName, true)));
 
             // STATISTIC MAPPINGS 
             CreateMap<Statistic, StatisticDto>();

@@ -1,5 +1,4 @@
-﻿// TournamentService.cs
-using AutoMapper;
+﻿using AutoMapper;
 using Beckend.DTOs;
 using Beckend.Enums;
 using Beckend.Models;
@@ -59,28 +58,44 @@ namespace Beckend.Services
             return _mapper.Map<List<TournamentDto>>(tournaments);
         }
 
-        public async Task<TournamentDto> GetByIdAsync(string id)
+        public async Task<TournamentDto?> GetByIdAsync(string id)
         {
             var tournament = await _tournamentRepository.GetByIdAsync(id);
+
+            if (tournament == null)
+                return null;
+
             return _mapper.Map<TournamentDto>(tournament);
         }
+
 
         public async Task<TournamentDto> CreateAsync(CreateTournamentDto createDto)
         {
+            if (string.IsNullOrWhiteSpace(createDto.TournamentName))
+                throw new ArgumentException("Tournament name is required");
+
             var exists = await TournamentNameExistsAsync(createDto.TournamentName);
+
             if (exists)
-                throw new InvalidOperationException($"Tournament with name '{createDto.TournamentName}' already exists");
-
-            if (createDto.StartDate < DateTime.UtcNow)
-                throw new ArgumentException("Start date cannot be in the past");
-
-            if (createDto.EndDate.HasValue && createDto.EndDate <= createDto.StartDate)
-                throw new ArgumentException("End date must be after start date");
+                throw new InvalidOperationException(
+                    $"Tournament with name '{createDto.TournamentName}' already exists");
 
             var tournament = _mapper.Map<Tournament>(createDto);
+
+            if (tournament.EndDate.HasValue &&
+                tournament.EndDate.Value <= tournament.StartDate)
+            {
+                throw new ArgumentException(
+                    "Дата завершення повинна бути пізнішою за дату початку.");
+            }
+
+            tournament.Status = TournamentStatus.Draft;
+
             await _tournamentRepository.CreateAsync(tournament);
+
             return _mapper.Map<TournamentDto>(tournament);
         }
+
 
         public async Task<TournamentDto> UpdateAsync(string id, UpdateTournamentDto updateDto)
         {
@@ -96,6 +111,14 @@ namespace Beckend.Services
             }
 
             _mapper.Map(updateDto, existing);
+
+            if (existing.EndDate.HasValue &&
+                existing.EndDate.Value <= existing.StartDate)
+            {
+                throw new ArgumentException(
+                    "Дата завершення повинна бути пізнішою за дату початку.");
+            }
+
             existing.Id = id;
             await _tournamentRepository.UpdateAsync(id, existing);
             return _mapper.Map<TournamentDto>(existing);
@@ -117,7 +140,10 @@ namespace Beckend.Services
             if (tournament == null)
                 throw new KeyNotFoundException("Tournament not found");
 
-            var team = new Team { Id = teamId };
+            var team = await _teamRepository.GetByIdAsync(teamId);
+
+            if (team == null)
+                throw new KeyNotFoundException("Team not found");
             var result = tournament.AddParticipant(team);
 
             if (result)
@@ -161,8 +187,11 @@ namespace Beckend.Services
             if (tournament == null)
                 throw new KeyNotFoundException("Tournament not found");
 
-            if (tournament.StartDate < DateTime.UtcNow)
-                throw new InvalidOperationException("Tournament has already started, registration closed");
+            if (tournament.Status != TournamentStatus.Registration)
+            {
+                throw new InvalidOperationException(
+                    "Registration is not open for this tournament");
+            }
 
             if (tournament.Format != TournamentFormat.Individual)
                 throw new InvalidOperationException("This tournament is for teams, not individuals");
@@ -187,32 +216,102 @@ namespace Beckend.Services
             return true;
         }
 
+
         public async Task<bool> RegisterTeamAsync(string tournamentId, string teamId)
         {
             var tournament = await _tournamentRepository.GetByIdAsync(tournamentId);
+
             if (tournament == null)
                 throw new KeyNotFoundException("Tournament not found");
 
-            if (tournament.StartDate < DateTime.UtcNow)
-                throw new InvalidOperationException("Tournament has already started, registration closed");
+            if (tournament.Status != TournamentStatus.Registration)
+                throw new InvalidOperationException(
+                    "Registration is not open for this tournament");
 
             if (tournament.Format != TournamentFormat.Command)
-                throw new InvalidOperationException("This tournament is for individuals, not teams");
+                throw new InvalidOperationException(
+                    "This tournament is for individuals, not teams");
 
-            if (tournament.MaxParticipants > 0 && tournament.TournamentParticipants.Count >= tournament.MaxParticipants)
-                throw new InvalidOperationException($"Tournament is full. Maximum {tournament.MaxParticipants} teams allowed");
+            if (tournament.MaxParticipants < 0)
+                throw new InvalidOperationException(
+                    "Tournament has an invalid participant limit");
+
+            if (tournament.MaxParticipants > 0 &&
+                tournament.TournamentParticipants.Count >= tournament.MaxParticipants)
+                throw new InvalidOperationException(
+                    "Tournament is full");
 
             var team = await _teamRepository.GetByIdAsync(teamId);
+
             if (team == null)
                 throw new KeyNotFoundException("Team not found");
 
+            if (team.SportName != tournament.SportName)
+                throw new InvalidOperationException(
+                    "Team sport does not match tournament sport");
+
             if (tournament.TournamentParticipants.Any(p => p.Id == teamId))
-                throw new InvalidOperationException("Team already registered for this tournament");
+                throw new InvalidOperationException(
+                    "Team already registered for this tournament");
 
             tournament.TournamentParticipants.Add(team);
+
             await _tournamentRepository.UpdateAsync(tournamentId, tournament);
 
             return true;
+        }
+
+        public async Task<TournamentDto> ChangeStatusAsync(
+    string tournamentId,
+    TournamentStatus newStatus)
+        {
+            var tournament = await _tournamentRepository.GetByIdAsync(tournamentId);
+
+            if (tournament == null)
+                throw new KeyNotFoundException("Tournament not found");
+
+            var allowedTransitions =
+                new Dictionary<TournamentStatus, TournamentStatus[]>
+                {
+                    [TournamentStatus.Draft] =
+                        new[] { TournamentStatus.Registration, TournamentStatus.Cancelled },
+
+                    [TournamentStatus.Registration] =
+                        new[] { TournamentStatus.Ready, TournamentStatus.Cancelled },
+
+                    [TournamentStatus.Ready] =
+                        new[] { TournamentStatus.InProgress, TournamentStatus.Cancelled },
+
+                    [TournamentStatus.InProgress] =
+                        new[] { TournamentStatus.Completed, TournamentStatus.Cancelled },
+
+                    [TournamentStatus.Completed] =
+                        Array.Empty<TournamentStatus>(),
+
+                    [TournamentStatus.Cancelled] =
+                        Array.Empty<TournamentStatus>()
+                };
+
+            if (!allowedTransitions.TryGetValue(
+                    tournament.Status, out var allowed) ||
+                !allowed.Contains(newStatus))
+            {
+                throw new InvalidOperationException(
+                    $"Cannot change tournament status from {tournament.Status} to {newStatus}");
+            }
+
+            if (newStatus == TournamentStatus.Ready &&
+                tournament.TournamentParticipants.Count < 2)
+            {
+                throw new InvalidOperationException(
+                    "At least 2 participants are required");
+            }
+
+            tournament.Status = newStatus;
+
+            await _tournamentRepository.UpdateAsync(tournamentId, tournament);
+
+            return _mapper.Map<TournamentDto>(tournament);
         }
     }
 }

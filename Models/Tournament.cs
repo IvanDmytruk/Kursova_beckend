@@ -9,9 +9,9 @@ namespace Beckend.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; } 
         [BsonElement("TournamentName")]
-        public string TournamentName { get; set; }
+        public string TournamentName { get; set; } = string.Empty;
         [BsonElement("TournamentDescription")]
-        public string TournamentDescription { get; set; }
+        public string TournamentDescription { get; set; } = string.Empty;
         [BsonElement("TournamentType")]
         public TournamentType TournamentType { get; set; }
         [BsonElement("Format")]
@@ -34,6 +34,11 @@ namespace Beckend.Models
         public string CreatedBy { get; set; } = string.Empty;
         [BsonElement("MaxParticipants")]
         public int MaxParticipants { get; set; } = 0;
+        [BsonElement("Settings")]
+        public TournamentSettings Settings { get; set; } = new();
+        [BsonElement("Status")]
+        public TournamentStatus Status { get; set; } =
+    TournamentStatus.Draft;
         public Tournament()
         {
             Id = ObjectId.GenerateNewId().ToString();
@@ -43,17 +48,21 @@ namespace Beckend.Models
             if (team == null)
                 throw new ArgumentNullException(nameof(team));
 
-            if (TournamentParticipants.Contains(team))
+            if (TournamentParticipants.Any(t => t.Id == team.Id))
                 return false;
 
             TournamentParticipants.Add(team);
             return true;
         }
+
         public bool RemoveParticipant(Team team)
         {
-            return TournamentParticipants.Remove(team);
-        }
+            if (team == null)
+                return false;
 
-        public event EventHandler<int> OnParticipantsChanged;
+            return TournamentParticipants.RemoveAll(
+                t => t.Id == team.Id) > 0;
+        }
+        public event EventHandler<int>? OnParticipantsChanged;
     }
 }

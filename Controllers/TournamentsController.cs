@@ -263,6 +263,50 @@ namespace Beckend.Controllers
                 return NotFound(ex.Message);
             }
         }
+        [Authorize]
+        [HttpPatch("{id}/status")]
+        public async Task<IActionResult> ChangeStatus(
+    string id,
+    [FromBody] UpdateTournamentStatusDto dto)
+        {
+            var userId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+            if (string.IsNullOrWhiteSpace(userId))
+                return Unauthorized();
+
+            var tournament = await _tournamentService.GetByIdAsync(id);
+
+            if (tournament == null)
+                return NotFound(new { message = "Tournament not found" });
+
+            if (tournament.CreatedBy != userId && !User.IsInRole("Admin"))
+                return Forbid();
+
+            if (!Enum.TryParse<TournamentStatus>(
+                    dto.Status, true, out var newStatus) ||
+                !Enum.IsDefined(newStatus))
+            {
+                return BadRequest(new { message = "Invalid tournament status" });
+            }
+
+            try
+            {
+                var updated = await _tournamentService.ChangeStatusAsync(
+                    id, newStatus);
+
+                return Ok(updated);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+        }
 
     }
 }

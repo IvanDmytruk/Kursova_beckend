@@ -1,6 +1,10 @@
 ﻿using Beckend.DTOs;
 using Beckend.Enums;
 using Beckend.Services;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
+using Beckend.Repositories;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Beckend.Controllers
@@ -10,10 +14,14 @@ namespace Beckend.Controllers
     public class MatchesController : ControllerBase
     {
         private readonly MatchService _matchService;
+        private readonly TournamentRepository _tournamentRepository;
 
-        public MatchesController(MatchService matchService)
+        public MatchesController(
+     MatchService matchService,
+     TournamentRepository tournamentRepository)
         {
             _matchService = matchService;
+            _tournamentRepository = tournamentRepository;
         }
 
         [HttpGet("byname/{name}")]
@@ -61,8 +69,6 @@ namespace Beckend.Controllers
                 return BadRequest(ex.Message);
             }
         }
-
-        // ⭐ ОДИН метод для отримання майбутніх матчів (з підтримкою фільтрації за спортом)
         [HttpGet("upcoming")]
         public async Task<IActionResult> GetUpcoming([FromQuery] SportName? sport = null)
         {
@@ -162,5 +168,45 @@ namespace Beckend.Controllers
                 return NotFound();
             return NoContent();
         }
+
+        [Authorize]
+        [HttpPost("tournament/{tournamentId}/generate-round-robin")]
+        public async Task<IActionResult> GenerateRoundRobin(
+            string tournamentId)
+        {
+            var userId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+            if (string.IsNullOrWhiteSpace(userId))
+                return Unauthorized();
+
+            var tournament = await _tournamentRepository
+                .GetByIdAsync(tournamentId);
+
+            if (tournament == null)
+                return NotFound(new { message = "Tournament not found" });
+
+            if (tournament.CreatedBy != userId &&
+                !User.IsInRole("Admin"))
+                return Forbid();
+
+            try
+            {
+                var matches = await _matchService
+                    .GenerateRoundRobinAsync(tournamentId);
+
+                return Ok(matches);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+        }
+
     }
 }

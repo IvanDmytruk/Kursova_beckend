@@ -6,7 +6,8 @@ namespace Beckend.Repositories
 {
     public class TournamentRepository : BaseRepository<Tournament>
     {
-        public TournamentRepository(IConfiguration config) : base(config, "Tournaments") { }
+        public TournamentRepository(IMongoDatabase database)
+    : base(database, "Tournaments") { }
         // метод для пошуку за назвою
         public async Task<Tournament?> GetTournamentByNameAsync(string name)
         {
@@ -44,8 +45,19 @@ namespace Beckend.Repositories
         //  Пошук активних турнірів
         public async Task<List<Tournament>> GetActiveTournamentsAsync()
         {
+            var activeStatuses = new[]
+            {
+        TournamentStatus.Registration,
+        TournamentStatus.Ready,
+        TournamentStatus.InProgress
+    };
+
+            var filter = Builders<Tournament>.Filter.In(
+                t => t.Status,
+                activeStatuses);
+
             return await _collection
-                .Find(t => t.EndDate == null || t.EndDate > DateTime.UtcNow)
+                .Find(filter)
                 .ToListAsync();
         }
     }

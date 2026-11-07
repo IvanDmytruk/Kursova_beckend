@@ -5,7 +5,7 @@ namespace Beckend.Repositories
 {
     public class TeamRepository : BaseRepository<Team>
     {
-        public TeamRepository(IConfiguration config) : base(config, "Teams") { }
+        public TeamRepository(IMongoDatabase database) : base(database, "Teams") { }
 
         // Пошук за назвою команди
         public async Task<Team?> GetTeamByNameAsync(string name)

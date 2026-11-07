@@ -2,10 +2,12 @@
 using Beckend.Mappings;
 using Beckend.Repositories;
 using Beckend.Services;
+using Beckend.Services.TournamentGenerators;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using MongoDB.Driver;
+using System.Security.Claims;
 using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
@@ -42,8 +44,10 @@ if (string.IsNullOrEmpty(mongoConnectionString))
 {
     throw new InvalidOperationException("MongoDB connection string is not configured");
 }
-builder.Services.AddSingleton<IMongoClient>(sp => new MongoClient(mongoConnectionString));
-builder.Services.AddSingleton(sp =>
+builder.Services.AddSingleton<IMongoClient>(
+    sp => new MongoClient(mongoConnectionString));
+
+builder.Services.AddSingleton<IMongoDatabase>(sp =>
 {
     var client = sp.GetRequiredService<IMongoClient>();
     return client.GetDatabase("CreateadTournament");
@@ -81,7 +85,9 @@ builder.Services.AddScoped<MatchService>();
 builder.Services.AddScoped<StatisticService>();
 builder.Services.AddScoped<SportService>();
 builder.Services.AddScoped<SearchService>();
+builder.Services.AddScoped<RoundRobinGenerator>();
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
@@ -90,7 +96,21 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1",
         Description = "API for managing tournaments, teams, and users"
     });
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Введіть JWT accessToken без префікса Bearer"
+    });
+    c.AddSecurityRequirement(document =>
+        new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+        });
 });
+
+
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -114,13 +134,11 @@ builder.Services
 
                 ClockSkew = TimeSpan.Zero,
 
-                NameClaimType =
-                    System.Security.Claims.ClaimTypes.Name,
-
-                RoleClaimType =
-                    System.Security.Claims.ClaimTypes.Role
+                NameClaimType = ClaimTypes.Name,
+                RoleClaimType = ClaimTypes.Role
             };
     });
+
 
 builder.Services.AddAuthorization();
 var app = builder.Build();

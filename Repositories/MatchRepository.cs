@@ -5,7 +5,8 @@ namespace Beckend.Repositories
 {
     public class MatchRepository : BaseRepository<Match>
     {
-        public MatchRepository(IConfiguration config) : base(config, "Matches") { }
+        public MatchRepository(IMongoDatabase database)
+    : base(database, "Matches") { }
 
         // Отримати матчі за турніром
         public async Task<List<Match>> GetMatchesByTournamentIdAsync(string tournamentId)
@@ -16,6 +17,13 @@ namespace Beckend.Repositories
             return await _collection
                 .Find(m => m.TournamentId == tournamentId)
                 .ToListAsync();
+        }
+        public async Task CreateManyAsync(List<Match> matches)
+        {
+            if (matches == null || matches.Count == 0)
+                return;
+
+            await _collection.InsertManyAsync(matches);
         }
 
         // Отримати матчі за командою (домашні або гостьові)

@@ -1,4 +1,6 @@
-﻿namespace Beckend.DTOs
+﻿using Beckend.Models;
+
+namespace Beckend.DTOs
 {
     public class CreateTournamentDto
     {
@@ -13,5 +15,6 @@
 
         public string? CreatedBy { get; set; }
         public int MaxParticipants { get; set; }
+        public TournamentSettings? Settings { get; set; }
     }
 }

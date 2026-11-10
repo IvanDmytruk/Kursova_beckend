@@ -46,6 +46,13 @@ namespace Beckend.Models
 
         [BsonElement("IsAutomatic")]
         public bool IsAutomatic { get; set; } = false;
+        [BsonElement("StageId")]
+        [BsonIgnoreIfNull]
+        public string? StageId { get; set; }
+
+        [BsonElement("BracketPosition")]
+        [BsonIgnoreIfDefault]
+        public int BracketPosition { get; set; }
         public Match()
         {
             Id = ObjectId.GenerateNewId().ToString();

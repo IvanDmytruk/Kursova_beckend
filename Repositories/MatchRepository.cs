@@ -1,14 +1,39 @@
-﻿using Beckend.Models;
+﻿using Beckend.Enums;
+using Beckend.Models;
 using MongoDB.Driver;
 
 namespace Beckend.Repositories
 {
     public class MatchRepository : BaseRepository<Match>
     {
-        public MatchRepository(IMongoDatabase database)
-    : base(database, "Matches") { }
 
-        // Отримати матчі за турніром
+        public MatchRepository(IMongoDatabase database)
+            : base(database, "Matches")
+        {
+            var indexKeys = Builders<Match>.IndexKeys
+                .Ascending(m => m.TournamentId)
+                .Ascending(m => m.StageId)
+                .Ascending(m => m.RoundNumber)
+                .Ascending(m => m.BracketPosition);
+
+            var options = new CreateIndexOptions<Match>
+            {
+                Name = "ux_olympic_match_position",
+                Unique = true,
+                PartialFilterExpression =
+                    Builders<Match>.Filter.And(
+                        Builders<Match>.Filter.Eq(
+                            m => m.IsAutomatic, true),
+                        Builders<Match>.Filter.Eq(
+                            m => m.StageId, "main"))
+            };
+
+            _collection.Indexes.CreateOne(
+                new CreateIndexModel<Match>(
+                    indexKeys, options));
+        }
+
+
         public async Task<List<Match>> GetMatchesByTournamentIdAsync(string tournamentId)
         {
             if (string.IsNullOrWhiteSpace(tournamentId))
@@ -25,8 +50,6 @@ namespace Beckend.Repositories
 
             await _collection.InsertManyAsync(matches);
         }
-
-        // Отримати матчі за командою (домашні або гостьові)
         public async Task<List<Match>> GetMatchesByTeamIdAsync(string teamId)
         {
             if (string.IsNullOrWhiteSpace(teamId))
@@ -37,8 +60,6 @@ namespace Beckend.Repositories
 
             return await _collection.Find(filter).ToListAsync();
         }
-
-        // Отримати майбутні матчі
         public async Task<List<Match>> GetUpcomingMatchesAsync()
         {
             return await _collection
@@ -46,8 +67,6 @@ namespace Beckend.Repositories
                 .SortBy(m => m.StartTime)
                 .ToListAsync();
         }
-
-        // Отримати матчі за діапазоном дат
         public async Task<List<Match>> GetMatchesByDateRangeAsync(DateTime start, DateTime end)
         {
             var filter = Builders<Match>.Filter
@@ -55,8 +74,6 @@ namespace Beckend.Repositories
 
             return await _collection.Find(filter).ToListAsync();
         }
-
-        // Пошук за назвою матчу
         public async Task<Match?> GetMatchByNameAsync(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
@@ -70,8 +87,6 @@ namespace Beckend.Repositories
         {
             if (string.IsNullOrWhiteSpace(searchTerm))
                 return new List<Match>();
-
-            // Використовуємо Regex для часткового пошуку
             var filter = Builders<Match>.Filter.Regex(
                 m => m.MatchName,
                 new MongoDB.Bson.BsonRegularExpression(searchTerm, "i")
@@ -79,5 +94,72 @@ namespace Beckend.Repositories
 
             return await _collection.Find(filter).ToListAsync();
         }
+
+        public async Task CreateManyAsync(
+            IClientSessionHandle session,
+            List<Match> matches)
+        {
+            if (matches == null || matches.Count == 0)
+                return;
+
+            await _collection.InsertManyAsync(
+                session,
+                matches);
+        }
+
+        public async Task<bool> CompleteMatchAsync(
+            IClientSessionHandle session,
+            Match match)
+        {
+            var filter = Builders<Match>.Filter.And(
+                Builders<Match>.Filter.Eq(m => m.Id, match.Id),
+                Builders<Match>.Filter.Ne(
+                    m => m.Status, MatchStatus.Completed),
+                Builders<Match>.Filter.Ne(
+                    m => m.Status, MatchStatus.Cancelled)
+            );
+
+            var update = Builders<Match>.Update
+                .Set(m => m.HomeScore, match.HomeScore)
+                .Set(m => m.AwayScore, match.AwayScore)
+                .Set(m => m.WinnerId, match.WinnerId)
+                .Set(m => m.Status, MatchStatus.Completed);
+
+            var result = await _collection.UpdateOneAsync(
+                session, filter, update);
+
+            return result.ModifiedCount == 1;
+        }
+
+        public async Task<bool> HasUnfinishedMatchesAsync(
+            IClientSessionHandle session,
+            string tournamentId)
+        {
+            var filter = Builders<Match>.Filter.And(
+                Builders<Match>.Filter.Eq(
+                    m => m.TournamentId, tournamentId),
+                Builders<Match>.Filter.Or(
+                    Builders<Match>.Filter.Ne(
+                        m => m.Status, MatchStatus.Completed),
+                    Builders<Match>.Filter.Eq(
+                        m => m.HomeScore, null),
+                    Builders<Match>.Filter.Eq(
+                        m => m.AwayScore, null)
+                )
+            );
+
+            return await _collection
+                .Find(session, filter)
+                .AnyAsync();
+        }
+        public async Task<List<Match>> GetSwissMatchesAsync(
+            IClientSessionHandle session,
+            string tournamentId)
+        {
+            return await _collection
+                .Find(session, m => m.TournamentId == tournamentId)
+                .ToListAsync();
+        }
+
     }
 }

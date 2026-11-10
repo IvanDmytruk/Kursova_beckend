@@ -39,6 +39,10 @@ namespace Beckend.Models
         [BsonElement("Status")]
         public TournamentStatus Status { get; set; } =
     TournamentStatus.Draft;
+
+        [BsonElement("SwissLastGeneratedRound")]
+        public int SwissLastGeneratedRound { get; set; } = 0;
+
         public Tournament()
         {
             Id = ObjectId.GenerateNewId().ToString();

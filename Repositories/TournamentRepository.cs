@@ -50,7 +50,7 @@ namespace Beckend.Repositories
         TournamentStatus.Registration,
         TournamentStatus.Ready,
         TournamentStatus.InProgress
-    };
+            };
 
             var filter = Builders<Tournament>.Filter.In(
                 t => t.Status,
@@ -60,5 +60,229 @@ namespace Beckend.Repositories
                 .Find(filter)
                 .ToListAsync();
         }
+
+        public async Task<bool> CompleteOlympicTournamentAsync(string tournamentId)
+        {
+            var filter = Builders<Tournament>.Filter.And(
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Id, tournamentId),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.TournamentType,
+                    TournamentType.OlympicSystem),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Status,
+                    TournamentStatus.InProgress)
+            );
+
+            var update = Builders<Tournament>.Update
+                .Set(t => t.Status, TournamentStatus.Completed);
+
+            var result = await _collection.UpdateOneAsync(
+                filter, update);
+
+            return result.ModifiedCount == 1;
+        }
+
+        public async Task<bool> CompleteOlympicTournamentAsync(IClientSessionHandle session,string tournamentId)
+        {
+            var filter = Builders<Tournament>.Filter.And(
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Id, tournamentId),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.TournamentType,
+                    TournamentType.OlympicSystem),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Status,
+                    TournamentStatus.InProgress));
+
+            var update = Builders<Tournament>.Update
+                .Set(t => t.Status, TournamentStatus.Completed);
+
+            var result = await _collection.UpdateOneAsync(
+                session, filter, update);
+
+            return result.ModifiedCount == 1;
+        }
+
+        public async Task<bool> StartOlympicTournamentAsync(
+            IClientSessionHandle session,
+            string tournamentId)
+        {
+            var filter = Builders<Tournament>.Filter.And(
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Id, tournamentId),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.TournamentType,
+                    TournamentType.OlympicSystem),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Status,
+                    TournamentStatus.Ready)
+            );
+
+            var update = Builders<Tournament>.Update
+                .Set(t => t.Status, TournamentStatus.InProgress);
+
+            var result = await _collection.UpdateOneAsync(
+                session, filter, update);
+
+            return result.ModifiedCount == 1;
+        }
+
+        public async Task<bool> StartTournamentAsync(
+            IClientSessionHandle session,
+            string tournamentId,
+            TournamentType tournamentType)
+        {
+            var filter = Builders<Tournament>.Filter.And(
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Id, tournamentId),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.TournamentType, tournamentType),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Status, TournamentStatus.Ready)
+            );
+
+            var update = Builders<Tournament>.Update
+                .Set(t => t.Status, TournamentStatus.InProgress);
+
+            var result = await _collection.UpdateOneAsync(
+                session, filter, update);
+
+            return result.ModifiedCount == 1;
+        }
+
+        public async Task<bool> CompleteRoundRobinAsync(
+            IClientSessionHandle session,
+            string tournamentId)
+        {
+            var filter = Builders<Tournament>.Filter.And(
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Id, tournamentId),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.TournamentType,
+                    TournamentType.RoundRobin),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Status,
+                    TournamentStatus.InProgress)
+            );
+
+            var update = Builders<Tournament>.Update
+                .Set(t => t.Status, TournamentStatus.Completed);
+
+            var result = await _collection.UpdateOneAsync(
+                session, filter, update);
+
+            return result.ModifiedCount == 1;
+        }
+
+        public async Task<bool> AdvanceSwissRoundAsync(
+            IClientSessionHandle session,
+            string tournamentId,
+            int expectedRound)
+        {
+            var filter = Builders<Tournament>.Filter.And(
+                Builders<Tournament>.Filter.Eq(t => t.Id, tournamentId),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.TournamentType, TournamentType.SwissSystem),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Status, TournamentStatus.InProgress),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.SwissLastGeneratedRound, expectedRound)
+            );
+
+            var update = Builders<Tournament>.Update
+                .Set(t => t.SwissLastGeneratedRound, expectedRound + 1);
+
+            var result = await _collection.UpdateOneAsync(
+                session, filter, update);
+
+            return result.ModifiedCount == 1;
+        }
+
+        public async Task<bool> StartSwissTournamentAsync(
+            IClientSessionHandle session,
+            string tournamentId)
+        {
+            var filter = Builders<Tournament>.Filter.And(
+                Builders<Tournament>.Filter.Eq(t => t.Id, tournamentId),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.TournamentType, TournamentType.SwissSystem),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Status, TournamentStatus.Ready),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.SwissLastGeneratedRound, 0)
+            );
+
+            var update = Builders<Tournament>.Update
+                .Set(t => t.Status, TournamentStatus.InProgress)
+                .Set(t => t.SwissLastGeneratedRound, 1);
+
+            var result = await _collection.UpdateOneAsync(
+                session, filter, update);
+
+            return result.ModifiedCount == 1;
+        }
+        public async Task<Tournament?> GetSwissTournamentAsync(
+            IClientSessionHandle session,
+            string tournamentId)
+        {
+            return await _collection
+                .Find(session, t => t.Id == tournamentId)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<bool> CompleteFixedRoundsSwissAsync(
+            IClientSessionHandle session,
+            string tournamentId,
+            int expectedRound)
+        {
+            var filter = Builders<Tournament>.Filter.And(
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Id, tournamentId),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.TournamentType, TournamentType.SwissSystem),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Status, TournamentStatus.InProgress),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.SwissLastGeneratedRound, expectedRound),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Settings.SwissMode, SwissMode.FixedRounds),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Settings.RoundsCount, expectedRound)
+            );
+
+            var update = Builders<Tournament>.Update
+                .Set(t => t.Status, TournamentStatus.Completed);
+
+            var result = await _collection.UpdateOneAsync(
+                session, filter, update);
+
+            return result.ModifiedCount == 1;
+        }
+        public async Task<bool> CompleteThresholdSwissAsync(
+            IClientSessionHandle session,
+            string tournamentId)
+        {
+            var filter = Builders<Tournament>.Filter.And(
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Id, tournamentId),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.TournamentType, TournamentType.SwissSystem),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Status, TournamentStatus.InProgress),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Settings.SwissMode,
+                    SwissMode.WinLossThreshold)
+            );
+
+            var update = Builders<Tournament>.Update
+                .Set(t => t.Status, TournamentStatus.Completed);
+
+            var result = await _collection.UpdateOneAsync(
+                session, filter, update);
+
+            return result.ModifiedCount == 1;
+        }
+
     }
 }

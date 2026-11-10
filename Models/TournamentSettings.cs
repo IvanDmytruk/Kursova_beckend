@@ -1,4 +1,5 @@
-﻿using MongoDB.Bson.Serialization.Attributes;
+﻿using Beckend.Enums;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace Beckend.Models
 {
@@ -27,5 +28,26 @@ namespace Beckend.Models
 
         [BsonElement("LossesToEliminate")]
         public int LossesToEliminate { get; set; } = 3;
+
+        [BsonElement("AllowRematches")]
+        public bool AllowRematches { get; set; } = false;
+
+        [BsonElement("PointsForWin")]
+        public decimal PointsForWin { get; set; } = 3m;
+
+        [BsonElement("PointsForDraw")]
+        public decimal PointsForDraw { get; set; } = 1m;
+
+        [BsonElement("PointsForLoss")]
+        public decimal PointsForLoss { get; set; } = 0m;
+
+        [BsonElement("PointsForBye")]
+        public decimal PointsForBye { get; set; } = 1m;
+
+        [BsonElement("SwissMode")]
+        public SwissMode SwissMode { get; set; } = SwissMode.WinLossThreshold;
+
+        [BsonElement("ByeCountsAsWin")]
+        public bool ByeCountsAsWin { get; set; } = false;
     }
 }

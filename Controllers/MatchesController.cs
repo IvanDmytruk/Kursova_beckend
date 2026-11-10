@@ -138,36 +138,87 @@ namespace Beckend.Controllers
             }
         }
 
+        [Authorize]
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(string id, [FromBody] UpdateMatchDto updateDto)
+        public async Task<IActionResult> Update(
+            string id,
+            [FromBody] UpdateMatchDto updateDto)
         {
+            var userId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+            if (string.IsNullOrWhiteSpace(userId))
+                return Unauthorized();
+
+            var match = await _matchService.GetByIdAsync(id);
+
+            if (match == null)
+                return NotFound(new { message = "Match not found" });
+
+            var tournament = await _tournamentRepository
+                .GetByIdAsync(match.TournamentId);
+
+            if (tournament == null)
+                return NotFound(new { message = "Tournament not found" });
+
+            if (tournament.CreatedBy != userId &&
+                !User.IsInRole("Admin"))
+                return Forbid();
+
             try
             {
                 var updated = await _matchService.UpdateAsync(id, updateDto);
                 return Ok(updated);
             }
-            catch (KeyNotFoundException)
+            catch (KeyNotFoundException ex)
             {
-                return NotFound();
+                return NotFound(new { message = ex.Message });
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new { message = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
-                return Conflict(ex.Message);
+                return Conflict(new { message = ex.Message });
             }
         }
 
+        [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
+            var userId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+            if (string.IsNullOrWhiteSpace(userId))
+                return Unauthorized();
+
+            var match = await _matchService.GetByIdAsync(id);
+
+            if (match == null)
+                return NotFound(new { message = "Match not found" });
+
+            var tournament = await _tournamentRepository
+                .GetByIdAsync(match.TournamentId);
+
+            if (tournament == null)
+                return NotFound(new { message = "Tournament not found" });
+
+            if (tournament.CreatedBy != userId &&
+                !User.IsInRole("Admin"))
+                return Forbid();
+
             var deleted = await _matchService.DeleteAsync(id);
+
             if (!deleted)
                 return NotFound();
+
             return NoContent();
         }
+
 
         [Authorize]
         [HttpPost("tournament/{tournamentId}/generate-round-robin")]
@@ -207,6 +258,81 @@ namespace Beckend.Controllers
                 return Conflict(new { message = ex.Message });
             }
         }
+        [Authorize]
+        [HttpPatch("{id}/result")]
+        public async Task<IActionResult> UpdateResult(string id,[FromBody] UpdateMatchResultDto dto)
+        {
+            var userId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
 
+            if (string.IsNullOrWhiteSpace(userId))
+                return Unauthorized();
+
+            var match = await _matchService.GetByIdAsync(id);
+
+            if (match == null)
+                return NotFound();
+
+            var tournament = await _tournamentRepository
+                .GetByIdAsync(match.TournamentId);
+
+            if (tournament == null)
+                return NotFound();
+
+            if (tournament.CreatedBy != userId &&
+                !User.IsInRole("Admin"))
+                return Forbid();
+
+            try
+            {
+                var result = await _matchService.UpdateResultAsync(id, dto);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+        }
+        [Authorize]
+        [HttpPost("tournament/{tournamentId}/generate-swiss-round")]
+        public async Task<IActionResult> GenerateSwissRound(string tournamentId)
+        {
+            var userId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var tournament = await _tournamentRepository
+                .GetByIdAsync(tournamentId);
+
+            if (tournament == null)
+                return NotFound(new { message = "Tournament not found" });
+
+            if (tournament.CreatedBy != userId && !User.IsInRole("Admin"))
+                return Forbid();
+
+            try
+            {
+                var matches = await _matchService
+                    .GenerateSwissRoundAsync(tournamentId);
+
+                return Ok(matches);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+        }
     }
 }

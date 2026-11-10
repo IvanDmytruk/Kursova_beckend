@@ -103,6 +103,8 @@ namespace Beckend.Services
             if (existing == null)
                 throw new KeyNotFoundException($"Tournament with id {id} not found");
 
+            EnsureTournamentStructureCanBeChanged(existing, updateDto);
+
             if (existing.TournamentName != updateDto.TournamentName)
             {
                 var exists = await TournamentNameExistsAsync(updateDto.TournamentName);
@@ -111,6 +113,21 @@ namespace Beckend.Services
             }
 
             _mapper.Map(updateDto, existing);
+
+            if (existing.MaxParticipants < 0)
+            {
+                throw new ArgumentException(
+                    "Maximum participants cannot be negative.");
+            }
+
+            if (existing.MaxParticipants > 0 &&
+                existing.TournamentParticipants.Count >
+                existing.MaxParticipants)
+            {
+                throw new InvalidOperationException(
+                    "Maximum participants cannot be less " +
+                    "than the current participant count.");
+            }
 
             if (existing.EndDate.HasValue &&
                 existing.EndDate.Value <= existing.StartDate)
@@ -136,9 +153,14 @@ namespace Beckend.Services
 
         public async Task<bool> AddTeamToTournament(string tournamentId, string teamId)
         {
-            var tournament = await _tournamentRepository.GetByIdAsync(tournamentId);
+
+            var tournament = await _tournamentRepository
+                .GetByIdAsync(tournamentId);
+
             if (tournament == null)
                 throw new KeyNotFoundException("Tournament not found");
+
+            EnsureParticipantsCanBeChanged(tournament);
 
             var team = await _teamRepository.GetByIdAsync(teamId);
 
@@ -156,9 +178,14 @@ namespace Beckend.Services
 
         public async Task<bool> RemoveTeamFromTournament(string tournamentId, string teamId)
         {
-            var tournament = await _tournamentRepository.GetByIdAsync(tournamentId);
+
+            var tournament = await _tournamentRepository
+                .GetByIdAsync(tournamentId);
+
             if (tournament == null)
                 throw new KeyNotFoundException("Tournament not found");
+
+            EnsureParticipantsCanBeChanged(tournament);
 
             var team = new Team { Id = teamId };
             var result = tournament.RemoveParticipant(team);
@@ -261,14 +288,31 @@ namespace Beckend.Services
             return true;
         }
 
-        public async Task<TournamentDto> ChangeStatusAsync(
-    string tournamentId,
-    TournamentStatus newStatus)
+        public async Task<TournamentDto> ChangeStatusAsync(string tournamentId,TournamentStatus newStatus)
         {
             var tournament = await _tournamentRepository.GetByIdAsync(tournamentId);
 
             if (tournament == null)
                 throw new KeyNotFoundException("Tournament not found");
+
+
+            if (tournament.Status == TournamentStatus.Ready &&
+                newStatus == TournamentStatus.InProgress &&
+                (tournament.TournamentType == TournamentType.RoundRobin ||
+                 tournament.TournamentType == TournamentType.SwissSystem))
+            {
+                throw new InvalidOperationException(
+                    "Tournament must be started by generating its matches.");
+            }
+
+            if (tournament.TournamentType == TournamentType.OlympicSystem &&
+                (newStatus == TournamentStatus.InProgress ||
+                 newStatus == TournamentStatus.Completed))
+            {
+                throw new InvalidOperationException(
+                    "Olympic tournament status is managed automatically " +
+                    "by OlympicBracketService.");
+            }
 
             var allowedTransitions =
                 new Dictionary<TournamentStatus, TournamentStatus[]>
@@ -313,5 +357,51 @@ namespace Beckend.Services
 
             return _mapper.Map<TournamentDto>(tournament);
         }
+
+        private static void EnsureParticipantsCanBeChanged(
+            Tournament tournament)
+        {
+            if (tournament.Status != TournamentStatus.Draft &&
+                tournament.Status != TournamentStatus.Registration)
+            {
+                throw new InvalidOperationException(
+                    "Participants can only be changed during " +
+                    "Draft or Registration.");
+            }
+        }
+
+        private static void EnsureTournamentStructureCanBeChanged(
+            Tournament tournament,
+            UpdateTournamentDto dto)
+        {
+            if (tournament.Status == TournamentStatus.Draft ||
+                tournament.Status == TournamentStatus.Registration)
+            {
+                return;
+            }
+
+            if (!Enum.TryParse<TournamentType>(
+                    dto.TournamentType, true, out var newType) ||
+                !Enum.TryParse<TournamentFormat>(
+                    dto.Format, true, out var newFormat) ||
+                !Enum.TryParse<SportName>(
+                    dto.SportName, true, out var newSport))
+            {
+                throw new ArgumentException(
+                    "Invalid tournament type, format or sport.");
+            }
+
+            if (tournament.TournamentType != newType ||
+                tournament.Format != newFormat ||
+                tournament.SportName != newSport ||
+                tournament.MaxParticipants != dto.MaxParticipants)
+            {
+                throw new InvalidOperationException(
+                    "Tournament structure cannot be changed " +
+                    "after registration is closed.");
+            }
+        }
+
+
     }
 }

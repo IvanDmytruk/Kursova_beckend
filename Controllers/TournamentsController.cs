@@ -1,7 +1,7 @@
 ﻿using AutoMapper;
 using Beckend.DTOs;
 using Beckend.Enums;
-using Beckend.Models;
+using Beckend.Services.TournamentStandings;
 using Beckend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,11 +18,13 @@ namespace Beckend.Controllers
     public class TournamentsController : ControllerBase
     {
         private readonly TournamentService _tournamentService;
+        private readonly StandingsService _standingsService;
         private readonly IMapper _mapper;
-        public TournamentsController(TournamentService tournamentService, IMapper mapper)
+        public TournamentsController(TournamentService tournamentService, IMapper mapper,StandingsService standingsService)
         {
             _tournamentService = tournamentService;
             _mapper = mapper;
+            _standingsService = standingsService;
         }
         [HttpGet("byname/{name}")]
         public async Task<IActionResult> GetByName(string name)
@@ -307,6 +309,27 @@ namespace Beckend.Controllers
                 return Conflict(new { message = ex.Message });
             }
         }
+
+        [HttpGet("{id}/standings")]
+        public async Task<IActionResult> GetStandings(string id)
+        {
+            try
+            {
+                var standings = await _standingsService
+                    .GetStandingsAsync(id);
+
+                return Ok(standings);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (NotSupportedException ex)
+            {
+                return StatusCode(501, new { message = ex.Message });
+            }
+        }
+
 
     }
 }

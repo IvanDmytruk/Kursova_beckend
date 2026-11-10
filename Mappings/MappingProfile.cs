@@ -54,6 +54,9 @@ namespace Beckend.Mappings
                 .ForMember(d => d.Id, o => o.Ignore())
                 .ForMember(d => d.CreatedBy, o => o.Ignore())
                 .ForMember(d => d.TournamentParticipants, o => o.Ignore())
+                .ForMember(d => d.NumberOfParticipants, o => o.Ignore())
+                .ForMember(d => d.Settings, o => o.Ignore())
+                .ForMember(d => d.Status, o => o.Ignore())
                 .ForMember(d => d.TournamentType,
                     o => o.MapFrom(s =>
                         Enum.Parse<TournamentType>(s.TournamentType, true)))
@@ -62,11 +65,8 @@ namespace Beckend.Mappings
                         Enum.Parse<TournamentFormat>(s.Format, true)))
                 .ForMember(d => d.SportName,
                     o => o.MapFrom(s =>
-                        Enum.Parse<SportName>(s.SportName, true)))
-                .ForMember(d => d.Status, o => o.Ignore())
-                .ForMember(d => d.CreatedBy, o => o.Ignore())
-                .ForMember(d => d.TournamentParticipants, o => o.Ignore())
-                .ForMember(d => d.Id, o => o.Ignore());
+                        Enum.Parse<SportName>(s.SportName, true)));
+
 
             // MATCH MAPPINGS
             CreateMap<Match, MatchDto>()

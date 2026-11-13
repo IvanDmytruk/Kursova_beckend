@@ -1,6 +1,6 @@
-
 using Beckend.Models.Olympic;
-using Beckend.Repositories;
+using Beckend.Repositories.Olympic;
+using MongoDB.Driver;
 using Xunit;
 
 namespace Beckend.Tests.Integration;
@@ -8,11 +8,13 @@ namespace Beckend.Tests.Integration;
 public class OlympicBracketRepositoryIntegrationTests
     : IClassFixture<MongoDbFixture>
 {
-    private readonly OlympicBracketRepository _repository;
+    private readonly MongoDbFixture _fixture;
+    private readonly IOlympicBracketRepository _repository;
 
     public OlympicBracketRepositoryIntegrationTests(
         MongoDbFixture fixture)
     {
+        _fixture = fixture;
         _repository = new OlympicBracketRepository(
             fixture.Database);
     }
@@ -39,10 +41,18 @@ public class OlympicBracketRepositoryIntegrationTests
     {
         var state = CreateState();
 
-        await _repository.CreateAsync(state);
+        using var session =
+            await _fixture.Database.Client.StartSessionAsync();
+
+        session.StartTransaction();
+
+        await _repository.CreateAsync(session, state);
+
+        await session.CommitTransactionAsync();
 
         var saved = await _repository.GetAsync(
-            state.TournamentId, state.StageId);
+            state.TournamentId,
+            state.StageId);
 
         Assert.NotNull(saved);
         Assert.Equal(state.Id, saved.Id);
@@ -55,15 +65,27 @@ public class OlympicBracketRepositoryIntegrationTests
     {
         var state = CreateState();
 
-        await _repository.CreateAsync(state);
+        using var session =
+            await _fixture.Database.Client.StartSessionAsync();
+
+        session.StartTransaction();
+        await _repository.CreateAsync(session, state);
+        await session.CommitTransactionAsync();
 
         state.CurrentRound = 2;
 
+        session.StartTransaction();
+
         bool updated = await _repository.TryUpdateAsync(
-            state, expectedVersion: 0);
+            session,
+            state,
+            expectedVersion: 0);
+
+        await session.CommitTransactionAsync();
 
         var saved = await _repository.GetAsync(
-            state.TournamentId, state.StageId);
+            state.TournamentId,
+            state.StageId);
 
         Assert.True(updated);
         Assert.NotNull(saved);
@@ -76,20 +98,38 @@ public class OlympicBracketRepositoryIntegrationTests
     {
         var state = CreateState();
 
-        await _repository.CreateAsync(state);
+        using var session =
+            await _fixture.Database.Client.StartSessionAsync();
+
+        session.StartTransaction();
+        await _repository.CreateAsync(session, state);
+        await session.CommitTransactionAsync();
 
         state.CurrentRound = 2;
 
+        session.StartTransaction();
+
         bool firstUpdate = await _repository.TryUpdateAsync(
-            state, expectedVersion: 0);
+            session,
+            state,
+            expectedVersion: 0);
+
+        await session.CommitTransactionAsync();
 
         state.CurrentRound = 3;
 
+        session.StartTransaction();
+
         bool secondUpdate = await _repository.TryUpdateAsync(
-            state, expectedVersion: 0);
+            session,
+            state,
+            expectedVersion: 0);
+
+        await session.CommitTransactionAsync();
 
         var saved = await _repository.GetAsync(
-            state.TournamentId, state.StageId);
+            state.TournamentId,
+            state.StageId);
 
         Assert.True(firstUpdate);
         Assert.False(secondUpdate);
@@ -102,22 +142,39 @@ public class OlympicBracketRepositoryIntegrationTests
     public async Task CreateAsync_DuplicateBracket_ShouldFail()
     {
         var first = CreateState();
-
         var duplicate = CreateState();
+
         duplicate.TournamentId = first.TournamentId;
         duplicate.StageId = first.StageId;
 
-        await _repository.CreateAsync(first);
+        using var session =
+            await _fixture.Database.Client.StartSessionAsync();
 
-        await Assert.ThrowsAsync<MongoDB.Driver.MongoWriteException>(
-            () => _repository.CreateAsync(duplicate));
+        session.StartTransaction();
+
+        await _repository.CreateAsync(session, first);
+        await session.CommitTransactionAsync();
+
+        session.StartTransaction();
+
+        try
+        {
+            await Assert.ThrowsAsync<MongoWriteException>(
+                () => _repository.CreateAsync(session, duplicate));
+        }
+        finally
+        {
+            if (session.IsInTransaction)
+                await session.AbortTransactionAsync();
+        }
     }
 
     [Fact]
     public async Task GetAsync_UnknownTournament_ShouldReturnNull()
     {
         var result = await _repository.GetAsync(
-            Guid.NewGuid().ToString(), "main");
+            Guid.NewGuid().ToString(),
+            "main");
 
         Assert.Null(result);
     }

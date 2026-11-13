@@ -1,8 +1,7 @@
-﻿// SportsController.cs
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Beckend.Enums;
 using Beckend.DTOs;
-using Beckend.Services;
+using Beckend.Services.Sports;
 
 namespace Beckend.Controllers
 {
@@ -10,9 +9,9 @@ namespace Beckend.Controllers
     [Route("api/[controller]")]
     public class SportsController : ControllerBase
     {
-        private readonly SportService _sportService;
+        private readonly ISportService _sportService;
 
-        public SportsController(SportService sportService)
+        public SportsController(ISportService sportService)
         {
             _sportService = sportService;
         }

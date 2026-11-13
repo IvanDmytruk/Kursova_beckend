@@ -1,11 +1,13 @@
 ﻿using Beckend.DTOs;
 using Beckend.Enums;
-using Beckend.Services;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
-using Beckend.Repositories;
 using Microsoft.AspNetCore.Mvc;
+using Beckend.Repositories.Tournaments;
+using Beckend.Services.Matches;
+using Beckend.Services.Matches.Generation;
+using Beckend.Services.Matches.Results;
 
 namespace Beckend.Controllers
 {
@@ -13,15 +15,22 @@ namespace Beckend.Controllers
     [Route("api/[controller]")]
     public class MatchesController : ControllerBase
     {
-        private readonly MatchService _matchService;
-        private readonly TournamentRepository _tournamentRepository;
+        private readonly IMatchService _matchService;
+        private readonly ITournamentRepository _tournamentRepository;
+        private readonly IMatchGenerationService _matchGenerationService;
+        private readonly IMatchResultService _matchResultService;
 
         public MatchesController(
-     MatchService matchService,
-     TournamentRepository tournamentRepository)
+     IMatchService matchService,
+     ITournamentRepository tournamentRepository,
+     IMatchGenerationService matchGenerationService,
+     IMatchResultService matchResultsService)
         {
             _matchService = matchService;
             _tournamentRepository = tournamentRepository;
+            _matchGenerationService = matchGenerationService;
+            _matchResultService = matchResultsService;
+
         }
 
         [HttpGet("byname/{name}")]
@@ -244,7 +253,7 @@ namespace Beckend.Controllers
 
             try
             {
-                var matches = await _matchService
+                var matches = await _matchGenerationService
                     .GenerateRoundRobinAsync(tournamentId);
 
                 return Ok(matches);
@@ -286,7 +295,7 @@ namespace Beckend.Controllers
 
             try
             {
-                var result = await _matchService.UpdateResultAsync(id, dto);
+                var result = await _matchResultService.UpdateResultAsync(id, dto);
                 return Ok(result);
             }
             catch (KeyNotFoundException ex)
@@ -324,7 +333,7 @@ namespace Beckend.Controllers
 
             try
             {
-                var matches = await _matchService
+                var matches = await _matchGenerationService
                     .GenerateSwissRoundAsync(tournamentId);
 
                 return Ok(matches);
@@ -334,5 +343,102 @@ namespace Beckend.Controllers
                 return Conflict(new { message = ex.Message });
             }
         }
+        [Authorize]
+        [HttpPost("tournament/{tournamentId}/generate-group-stage")]
+        public async Task<IActionResult> GenerateGroupStage(string tournamentId)
+        {
+            var userId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+            if (string.IsNullOrWhiteSpace(userId))
+                return Unauthorized();
+
+            var tournament = await _tournamentRepository
+                .GetByIdAsync(tournamentId);
+
+            if (tournament == null)
+                return NotFound(new
+                {
+                    message = "Tournament not found"
+                });
+
+            if (tournament.CreatedBy != userId &&
+                !User.IsInRole("Admin"))
+            {
+                return Forbid();
+            }
+
+            try
+            {
+                var matches = await _matchGenerationService
+                    .GenerateGroupStageAsync(tournamentId);
+
+                return Ok(matches);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+        }
+
+        [Authorize]
+        [HttpPost("tournament/{tournamentId}/generate-double-elimination-round")]
+        public async Task<IActionResult> GenerateDoubleEliminationRound(
+            string tournamentId)
+        {
+            var userId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+            if (string.IsNullOrWhiteSpace(userId))
+                return Unauthorized();
+
+            var tournament = await _tournamentRepository
+                .GetByIdAsync(tournamentId);
+
+            if (tournament == null)
+            {
+                return NotFound(new
+                {
+                    message = "Tournament not found"
+                });
+            }
+
+            if (tournament.CreatedBy != userId &&
+                !User.IsInRole("Admin"))
+            {
+                return Forbid();
+            }
+
+            try
+            {
+                var matches = await _matchGenerationService
+                    .GenerateDoubleEliminationRoundAsync(tournamentId);
+
+                return Ok(matches);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
+        }
+
     }
 }

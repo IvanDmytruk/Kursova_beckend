@@ -42,6 +42,11 @@ namespace Beckend.Models
 
         [BsonElement("SwissLastGeneratedRound")]
         public int SwissLastGeneratedRound { get; set; } = 0;
+        [BsonElement("DoubleEliminationLastGeneratedRound")]
+        public int DoubleEliminationLastGeneratedRound { get; set; } = 0;
+
+        [BsonElement("ChampionId")]
+        public string? ChampionId { get; set; }
 
         public Tournament()
         {

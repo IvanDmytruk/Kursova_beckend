@@ -1,7 +1,6 @@
-﻿// StatisticsController.cs
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Beckend.DTOs;
-using Beckend.Services;
+using Beckend.Services.Statistics;
 
 namespace Beckend.Controllers
 {
@@ -9,9 +8,9 @@ namespace Beckend.Controllers
     [Route("api/[controller]")]
     public class StatisticsController : ControllerBase
     {
-        private readonly StatisticService _statisticService;
+        private readonly IStatisticService _statisticService;
 
-        public StatisticsController(StatisticService statisticService)
+        public StatisticsController(IStatisticService statisticService)
         {
             _statisticService = statisticService;
         }

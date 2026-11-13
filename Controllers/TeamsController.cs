@@ -1,7 +1,6 @@
-﻿// TeamsController.cs
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Beckend.DTOs;
-using Beckend.Services;
+using Beckend.Services.Teams;
 
 namespace Beckend.Controllers
 {
@@ -9,9 +8,9 @@ namespace Beckend.Controllers
     [Route("api/[controller]")]
     public class TeamsController : ControllerBase
     {
-        private readonly TeamService _teamService;
+        private readonly ITeamService _teamService;
 
-        public TeamsController(TeamService teamService)
+        public TeamsController(ITeamService teamService)
         {
             _teamService = teamService;
         }
@@ -76,11 +75,20 @@ namespace Beckend.Controllers
             try
             {
                 var players = await _teamService.GetPlayersByTeamIdAsync(id);
-                return Ok(players);
+
+                return Ok(players.Select(p => new
+                {
+                    p.Id,
+                    p.Name,
+                    p.Surname,
+                    p.Age,
+                    p.Role
+                }));
             }
             catch (KeyNotFoundException)
             {
-                return NotFound($"Team with id {id} not found");
+                return NotFound(
+                    $"Team with id {id} not found");
             }
         }
 

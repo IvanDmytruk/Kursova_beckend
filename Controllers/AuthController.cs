@@ -2,7 +2,7 @@
 using Beckend.Enums;
 using Beckend.JWT;
 using Beckend.Models;
-using Beckend.Services;
+using Beckend.Services.Auth;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 

@@ -86,7 +86,7 @@ public class ThresholdSwissGenerator
             }
 
             previousPairs.Add(
-                PairKey(match.HomeTeamId, match.AwayTeamId));
+                SwissPairHelper.PairKey(match.HomeTeamId, match.AwayTeamId));
         }
 
         foreach (var bye in previousByes)
@@ -279,10 +279,7 @@ public class ThresholdSwissGenerator
                             opponentRecord.Losses);
 
                     bool isRematch =
-                        previousPairs.Contains(
-                            PairKey(
-                                first.Id,
-                                opponent.Id));
+                        previousPairs.Contains(SwissPairHelper.PairKey(first.Id, opponent.Id));
 
                     return new
                     {
@@ -336,14 +333,6 @@ public class ThresholdSwissGenerator
         Search(teams, 0, 0);
 
         return bestPairs;
-    }
-    private static string PairKey(
-        string a,
-        string b)
-    {
-        return string.CompareOrdinal(a, b) < 0
-            ? $"{a}:{b}"
-            : $"{b}:{a}";
     }
     private sealed class SwissRecord
     {

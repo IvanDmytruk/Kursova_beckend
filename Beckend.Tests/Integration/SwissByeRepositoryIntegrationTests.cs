@@ -1,5 +1,5 @@
 using Beckend.Models;
-using Beckend.Repositories;
+using Beckend.Repositories.Swiss;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Xunit;

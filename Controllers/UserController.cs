@@ -1,7 +1,6 @@
-﻿// UserController.cs
-using AutoMapper;
+﻿using AutoMapper;
 using Beckend.DTOs;
-using Beckend.Services;
+using Beckend.Services.Users;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
@@ -12,9 +11,9 @@ namespace Beckend.Controllers
     [Route("api/[controller]")]
     public class UserController : ControllerBase
     {
-        private readonly UserService _userService;
+        private readonly IUserService _userService;
 
-        public UserController(UserService userService)
+        public UserController(IUserService userService)
         {
             _userService = userService;
         }

@@ -1,6 +1,6 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using Beckend.Repositories;
+using Beckend.Repositories.Tournaments;
 using Beckend.Services.Olympic.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,11 +14,11 @@ namespace Beckend.Controllers;
 public class OlympicController : ControllerBase
 {
     private readonly IOlympicBracketService _service;
-    private readonly TournamentRepository _tournaments;
+    private readonly ITournamentRepository _tournaments;
 
     public OlympicController(
         IOlympicBracketService service,
-        TournamentRepository tournaments)
+        ITournamentRepository tournaments)
     {
         _service = service;
         _tournaments = tournaments;

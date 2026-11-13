@@ -18,6 +18,8 @@
 
         public int RoundNumber { get; set; }
         public string? GroupId { get; set; }
+        public string? StageId { get; set; }
+        public int BracketPosition { get; set; }
 
         public int? HomeScore { get; set; }
         public int? AwayScore { get; set; }

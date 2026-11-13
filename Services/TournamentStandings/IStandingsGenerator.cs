@@ -1,5 +1,4 @@
-﻿
-using Beckend.DTOs.Standings;
+﻿using Beckend.DTOs.Standings;
 using Beckend.Enums;
 using Beckend.Models;
 

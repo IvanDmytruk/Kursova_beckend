@@ -2,11 +2,13 @@
 using Beckend.DTOs;
 using Beckend.Enums;
 using Beckend.Services.TournamentStandings;
-using Beckend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Beckend.Services.Tournaments;
+using Beckend.Services.Tournaments.Lifecycle;
+using Beckend.Services.Tournaments.Registration;
 public class RegisterForTournamentRequest
 {
     public string TeamId { get; set; } = string.Empty;
@@ -17,14 +19,20 @@ namespace Beckend.Controllers
     [Route("api/[controller]")]
     public class TournamentsController : ControllerBase
     {
-        private readonly TournamentService _tournamentService;
+        private readonly ITournamentService _tournamentService;
         private readonly StandingsService _standingsService;
+        private readonly IStandingsGenerator _standingsGenerator;
         private readonly IMapper _mapper;
-        public TournamentsController(TournamentService tournamentService, IMapper mapper,StandingsService standingsService)
+        private readonly ITournamentLifecycleService _tournamentLifecycleService;
+        private readonly ITournamentRegistrationService _registrationService;
+
+        public TournamentsController(ITournamentService tournamentService, IMapper mapper,StandingsService standingsService, ITournamentLifecycleService tournamentLifecycleService, ITournamentRegistrationService registrationService)
         {
             _tournamentService = tournamentService;
             _mapper = mapper;
             _standingsService = standingsService;
+            _tournamentLifecycleService = tournamentLifecycleService;
+            _registrationService = registrationService;
         }
         [HttpGet("byname/{name}")]
         public async Task<IActionResult> GetByName(string name)
@@ -175,7 +183,7 @@ namespace Beckend.Controllers
 
                 if (tournament.Format == TournamentFormat.Individual.ToString())
                 {
-                    await _tournamentService.RegisterPlayerAsync(tournamentId, userId);
+                    await _registrationService.RegisterPlayerAsync(tournamentId, userId);
                     return Ok(new { message = "Player successfully registered for tournament" });
                 }
                 else if (tournament.Format == TournamentFormat.Command.ToString())
@@ -183,7 +191,7 @@ namespace Beckend.Controllers
                     if (string.IsNullOrEmpty(request?.TeamId))
                         return BadRequest("TeamId is required for team tournament");
 
-                    await _tournamentService.RegisterTeamAsync(tournamentId, request.TeamId);
+                    await _registrationService.RegisterTeamAsync(tournamentId, request.TeamId);
                     return Ok(new { message = "Team successfully registered for tournament" });
                 }
                 else
@@ -233,13 +241,13 @@ namespace Beckend.Controllers
 
             return NoContent();
         }
-
+        [Authorize]
         [HttpPost("{tournamentId}/teams/{teamId}")]
         public async Task<IActionResult> AddTeam(string tournamentId, string teamId)
         {
             try
             {
-                var result = await _tournamentService.AddTeamToTournament(tournamentId, teamId);
+                var result = await _registrationService.AddTeamToTournament(tournamentId, teamId);
                 if (result)
                     return Ok();
                 return BadRequest("Failed to add team");
@@ -249,13 +257,13 @@ namespace Beckend.Controllers
                 return NotFound(ex.Message);
             }
         }
-
+        [Authorize]
         [HttpDelete("{tournamentId}/teams/{teamId}")]
         public async Task<IActionResult> RemoveTeam(string tournamentId, string teamId)
         {
             try
             {
-                var result = await _tournamentService.RemoveTeamFromTournament(tournamentId, teamId);
+                var result = await _registrationService.RemoveTeamFromTournament(tournamentId, teamId);
                 if (result)
                     return Ok();
                 return BadRequest("Failed to remove team");
@@ -295,7 +303,7 @@ namespace Beckend.Controllers
 
             try
             {
-                var updated = await _tournamentService.ChangeStatusAsync(
+                var updated = await _tournamentLifecycleService.ChangeStatusAsync(
                     id, newStatus);
 
                 return Ok(updated);

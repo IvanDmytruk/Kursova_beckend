@@ -104,7 +104,7 @@ public class FixedRoundsSwissGenerator
             }
 
             previousPairs.Add(
-                PairKey(
+                SwissPairHelper.PairKey(
                     match.HomeTeamId,
                     match.AwayTeamId));
         }
@@ -257,8 +257,7 @@ public class FixedRoundsSwissGenerator
                         points[first.Id] -
                         points[opponent.Id]),
 
-                    IsRematch = previousPairs.Contains(
-                        PairKey(first.Id, opponent.Id))
+                    IsRematch = previousPairs.Contains(SwissPairHelper.PairKey(first.Id, opponent.Id))
                 })
                 .Where(c =>
                     allowRematches || !c.IsRematch)
@@ -305,13 +304,5 @@ public class FixedRoundsSwissGenerator
         Search(teams, 0m, 0);
 
         return best;
-    }
-    private static string PairKey(
-        string a,
-        string b)
-    {
-        return string.CompareOrdinal(a, b) < 0
-            ? $"{a}:{b}"
-            : $"{b}:{a}";
     }
 }

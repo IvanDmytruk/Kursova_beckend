@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Beckend.Services;
+using Beckend.Services.Search;
 
 namespace Beckend.Controllers
 {

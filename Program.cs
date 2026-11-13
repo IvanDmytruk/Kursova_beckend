@@ -1,19 +1,13 @@
 ﻿using Beckend.JWT;
 using Beckend.Mappings;
-using Beckend.Repositories;
-using Beckend.Services;
-using Beckend.Services.TournamentGenerators;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using MongoDB.Driver;
 using System.Security.Claims;
-using Beckend.Services.TournamentStandings;
 using System.Text;
-using Beckend.Services.TournamentPlanning;
-using Beckend.Services.Interfaces;
-using Beckend.Services.Olympic;
-using Beckend.Services.Olympic.Interfaces;
+using Beckend.Extensions;
+
 var builder = WebApplication.CreateBuilder(args);
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 var url = $"http://0.0.0.0:{port}";
@@ -78,33 +72,11 @@ builder.Services.Configure<JwtSettings>(options =>
     options.AccessTokenExpiryMinutes = jwtExpiryMinutes;
     options.RefreshTokenExpiryDays = jwtRefreshExpiryDays;
 });
-builder.Services.AddScoped<TokenService>();
-builder.Services.AddScoped<UserRepository>();
-builder.Services.AddScoped<TournamentRepository>();
-builder.Services.AddScoped<TeamRepository>();
-builder.Services.AddScoped<MatchRepository>();
-builder.Services.AddScoped<StatisticRepository>();
-builder.Services.AddScoped<SportRepository>();
-builder.Services.AddScoped<SwissByeRepository>();
 
-builder.Services.AddScoped<UserService>();
-builder.Services.AddScoped<TournamentService>();
-builder.Services.AddScoped<TeamService>();
-builder.Services.AddScoped<MatchService>();
-builder.Services.AddScoped<StatisticService>();
-builder.Services.AddScoped<SportService>();
-builder.Services.AddScoped<SearchService>();
-builder.Services.AddScoped<RoundRobinGenerator>();
-builder.Services.AddScoped<IStandingsGenerator, RoundRobinStandingsGenerator>();
-builder.Services.AddScoped<ThresholdSwissGenerator>();
-builder.Services.AddScoped<StandingsService>();
-builder.Services.AddScoped<ISwissStageSimulator, SwissStageSimulator>();
-builder.Services.AddScoped<ITournamentPlanningService, TournamentPlanningService>();
-builder.Services.AddScoped<ITournamentPlanEvaluator, TournamentPlanEvaluator>();
-builder.Services.AddScoped<OlympicBracketRepository>();
-builder.Services.AddScoped<OlympicGenerator>();
-builder.Services.AddScoped< IOlympicBracketService,OlympicBracketService>();
-builder.Services.AddScoped<FixedRoundsSwissGenerator>();
+builder.Services.AddRepositories();
+builder.Services.AddApplicationServices();
+builder.Services.AddTournamentGenerators();
+
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(c =>

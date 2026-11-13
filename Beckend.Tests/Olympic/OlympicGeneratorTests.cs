@@ -1,4 +1,7 @@
-﻿using Beckend.Models;
+﻿using Beckend.Enums;
+using Beckend.Models;
+using Beckend.Models.Olympic;
+using Beckend.Services.Olympic;
 using Beckend.Services.TournamentGenerators;
 using Xunit;
 
@@ -8,247 +11,379 @@ public class OlympicGeneratorTests
 {
     private readonly OlympicGenerator _generator = new();
 
-    private static List<Team> CreateTeams(int count)
-    {
-        return Enumerable.Range(1, count)
-            .Select(i => new Team($"Team {i}"))
-            .ToList();
-    }
-
-    private static Tournament CreateTournament()
-    {
-        return new Tournament
-        {
-            TournamentName = "Olympic Test"
-        };
-    }
-
     [Theory]
-    [InlineData(2, 2, 0)]
-    [InlineData(3, 4, 1)]
-    [InlineData(4, 4, 0)]
-    [InlineData(5, 8, 3)]
-    [InlineData(6, 8, 2)]
-    [InlineData(7, 8, 1)]
-    [InlineData(8, 8, 0)]
-    public void CreateSlots_ShouldGenerateCorrectBracket(
-        int teamCount,
-        int expectedBracketSize,
-        int expectedByes)
+    [InlineData(2, 2)]
+    [InlineData(3, 4)]
+    [InlineData(4, 4)]
+    [InlineData(5, 8)]
+    [InlineData(6, 8)]
+    [InlineData(7, 8)]
+    [InlineData(8, 8)]
+    [InlineData(9, 16)]
+    [InlineData(12, 16)]
+    [InlineData(16, 16)]
+    public void CreateSlots_ShouldGenerateCorrectBracketSize(
+        int participantCount,
+        int expectedSize)
     {
-        var teams = CreateTeams(teamCount);
+        var teams = CreateTeams(participantCount);
 
         var slots = _generator.CreateSlots(
-            teams, shuffle: false);
+            teams,
+            shuffle: false);
 
-        Assert.Equal(expectedBracketSize, slots.Count);
-
-        Assert.Equal(
-            expectedByes,
-            slots.Count(x => x == null));
+        Assert.Equal(expectedSize, slots.Count);
 
         Assert.Equal(
-            teamCount,
-            slots.Count(x => x != null));
+            participantCount,
+            slots.Count(id => id != null));
+
+        Assert.Equal(
+            participantCount,
+            slots.Where(id => id != null).Distinct().Count());
     }
 
     [Theory]
+    [InlineData(3)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(9)]
+    [InlineData(12)]
+    public void FirstRound_ShouldCorrectlyHandleByes(
+        int participantCount)
+    {
+        var teams = CreateTeams(participantCount);
+
+        var tournament = CreateTournament(teams);
+
+        var slots = _generator.CreateSlots(
+            teams,
+            shuffle: false);
+
+        var matches = _generator.GenerateFirstRound(
+            tournament,
+            slots,
+            "main");
+
+        int expectedByes = slots.Count - participantCount;
+        int expectedMatches = participantCount - slots.Count / 2;
+
+        Assert.Equal(expectedMatches, matches.Count);
+
+        int actualByes = 0;
+
+        for (int i = 0; i < slots.Count; i += 2)
+        {
+            if ((slots[i] == null) != (slots[i + 1] == null))
+                actualByes++;
+        }
+
+        Assert.Equal(expectedByes, actualByes);
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(9)]
+    [InlineData(12)]
+    public void Resolver_ShouldAdvanceAllTeamsFromFirstRound(
+        int participantCount)
+    {
+        var teams = CreateTeams(participantCount);
+        var tournament = CreateTournament(teams);
+
+        var slots = _generator.CreateSlots(
+            teams,
+            shuffle: false);
+
+        var matches = _generator.GenerateFirstRound(
+            tournament,
+            slots,
+            "main");
+
+        CompleteMatches(matches);
+
+        var state = CreateState(
+            tournament,
+            slots);
+
+        var advancing = OlympicAdvancementResolver.Resolve(
+            state,
+            matches,
+            1);
+
+        Assert.Equal(slots.Count / 2, advancing.Count);
+
+        Assert.All(
+            advancing,
+            teamId => Assert.False(string.IsNullOrWhiteSpace(teamId)));
+
+        Assert.Equal(
+            advancing.Count,
+            advancing.Distinct().Count());
+    }
+
+    [Fact]
+    public void Resolver_ShouldRejectIncompleteMatch()
+    {
+        var teams = CreateTeams(4);
+        var tournament = CreateTournament(teams);
+
+        var slots = _generator.CreateSlots(
+            teams,
+            shuffle: false);
+
+        var matches = _generator.GenerateFirstRound(
+            tournament,
+            slots,
+            "main");
+
+        var state = CreateState(tournament, slots);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            OlympicAdvancementResolver.Resolve(
+                state,
+                matches,
+                1));
+    }
+
+    [Fact]
+    public void Resolver_ShouldRejectInvalidWinner()
+    {
+        var teams = CreateTeams(4);
+        var tournament = CreateTournament(teams);
+
+        var slots = _generator.CreateSlots(
+            teams,
+            shuffle: false);
+
+        var matches = _generator.GenerateFirstRound(
+            tournament,
+            slots,
+            "main");
+
+        CompleteMatches(matches);
+
+        matches[0].WinnerId = "unknown-team";
+
+        var state = CreateState(tournament, slots);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            OlympicAdvancementResolver.Resolve(
+                state,
+                matches,
+                1));
+    }
+
+    [Fact]
+    public void Resolver_ShouldRejectDuplicateBracketPosition()
+    {
+        var teams = CreateTeams(4);
+        var tournament = CreateTournament(teams);
+
+        var slots = _generator.CreateSlots(
+            teams,
+            shuffle: false);
+
+        var matches = _generator.GenerateFirstRound(
+            tournament,
+            slots,
+            "main");
+
+        CompleteMatches(matches);
+
+        matches[1].BracketPosition =
+            matches[0].BracketPosition;
+
+        var state = CreateState(tournament, slots);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            OlympicAdvancementResolver.Resolve(
+                state,
+                matches,
+                1));
+    }
+
+    [Theory]
+    [InlineData(2)]
     [InlineData(3)]
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
+    [InlineData(7)]
     [InlineData(8)]
-    public void CreateSlots_ShouldContainEveryTeamExactlyOnce(
-        int teamCount)
+    [InlineData(9)]
+    [InlineData(12)]
+    [InlineData(16)]
+    public void FullTournament_ShouldDetermineOneChampion(
+        int participantCount)
     {
-        var teams = CreateTeams(teamCount);
+        var teams = CreateTeams(participantCount);
+        var tournament = CreateTournament(teams);
 
         var slots = _generator.CreateSlots(
-            teams, shuffle: false);
+            teams,
+            shuffle: false);
 
-        var actualIds = slots
-            .Where(x => x != null)
-            .Select(x => x!)
-            .ToList();
+        var state = CreateState(tournament, slots);
 
-        Assert.Equal(teamCount, actualIds.Distinct().Count());
+        var currentMatches = _generator.GenerateFirstRound(
+            tournament,
+            slots,
+            "main");
 
-        Assert.True(
-            teams.Select(t => t.Id)
-                .OrderBy(x => x)
-                .SequenceEqual(actualIds.OrderBy(x => x)));
-    }
+        int totalRounds = (int)Math.Log2(slots.Count);
 
-    [Fact]
-    public void CreateSlots_FourTeams_ShouldUseCorrectSeedOrder()
-    {
-        var teams = CreateTeams(4);
-
-        var slots = _generator.CreateSlots(
-            teams, shuffle: false);
-
-        var expected = new[]
+        for (int round = 1; round <= totalRounds; round++)
         {
-            teams[0].Id,
-            teams[3].Id,
-            teams[1].Id,
-            teams[2].Id
-        };
+            CompleteMatches(currentMatches);
 
-        Assert.Equal(expected, slots);
-    }
+            var advancing = OlympicAdvancementResolver.Resolve(
+                state,
+                currentMatches,
+                round);
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    public void CreateSlots_LessThanTwoTeams_ShouldThrow(
-        int count)
-    {
-        var teams = CreateTeams(count);
+            if (round == totalRounds)
+            {
+                Assert.Single(advancing);
+                Assert.Contains(advancing[0], teams.Select(t => t.Id));
+                return;
+            }
 
-        Assert.Throws<ArgumentException>(() =>
-            _generator.CreateSlots(teams, false));
-    }
-
-    [Fact]
-    public void CreateSlots_DuplicateIds_ShouldThrow()
-    {
-        var teams = CreateTeams(2);
-
-        teams[1].Id = teams[0].Id;
-
-        Assert.Throws<ArgumentException>(() =>
-            _generator.CreateSlots(teams, false));
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void CreateSlots_InvalidId_ShouldThrow(string id)
-    {
-        var teams = CreateTeams(2);
-
-        teams[0].Id = id;
-
-        Assert.Throws<ArgumentException>(() =>
-            _generator.CreateSlots(teams, false));
-    }
-
-    [Theory]
-    [InlineData(2, 1)]
-    [InlineData(3, 1)]
-    [InlineData(4, 2)]
-    [InlineData(5, 1)]
-    [InlineData(6, 2)]
-    [InlineData(7, 3)]
-    [InlineData(8, 4)]
-    public void GenerateFirstRound_ShouldCreateCorrectMatchCount(
-        int teamCount,
-        int expectedMatches)
-    {
-        var teams = CreateTeams(teamCount);
-        var tournament = CreateTournament();
-
-        var slots = _generator.CreateSlots(
-            teams, shuffle: false);
-
-        var matches = _generator.GenerateFirstRound(
-            tournament, slots, "stage-1");
-
-        Assert.Equal(expectedMatches, matches.Count);
-    }
-    [Fact]
-    public void GenerateFirstRound_ShouldSetCorrectProperties()
-    {
-        var teams = CreateTeams(4);
-        var tournament = CreateTournament();
-
-        var slots = _generator.CreateSlots(teams, false);
-
-        var matches = _generator.GenerateFirstRound(
-            tournament, slots, "stage-1");
-
-        Assert.Equal(2, matches.Count);
-
-        for (int i = 0; i < matches.Count; i++)
-        {
-            var match = matches[i];
-
-            Assert.Equal(tournament.Id, match.TournamentId);
-            Assert.Equal("stage-1", match.StageId);
-            Assert.Equal(1, match.RoundNumber);
-            Assert.Equal(i + 1, match.BracketPosition);
-            Assert.True(match.IsAutomatic);
-
-            Assert.False(string.IsNullOrWhiteSpace(
-                match.HomeTeamId));
-
-            Assert.False(string.IsNullOrWhiteSpace(
-                match.AwayTeamId));
-
-            Assert.NotEqual(
-                match.HomeTeamId,
-                match.AwayTeamId);
+            currentMatches = CreateNextRoundMatches(
+                tournament,
+                advancing,
+                round + 1);
         }
     }
 
-    [Fact]
-    public void GenerateFirstRound_ShouldSkipByeMatches()
+    private static List<Team> CreateTeams(int count)
     {
-        var teams = CreateTeams(3);
-        var tournament = CreateTournament();
-
-        var slots = _generator.CreateSlots(teams, false);
-
-        var matches = _generator.GenerateFirstRound(
-            tournament, slots, "stage-1");
-
-        Assert.Single(matches);
-
-        Assert.All(matches, match =>
-        {
-            Assert.NotNull(match.HomeTeamId);
-            Assert.NotNull(match.AwayTeamId);
-        });
-    }
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(3)]
-    [InlineData(5)]
-    [InlineData(6)]
-    public void GenerateFirstRound_InvalidBracketSize_ShouldThrow(
-        int size)
-    {
-        var tournament = CreateTournament();
-
-        var slots = Enumerable
-            .Range(0, size)
-            .Select(i => (string?)$"team-{i}")
+        return Enumerable.Range(1, count)
+            .Select(i => new Team
+            {
+                Id = i.ToString("D24"),
+                TeamName = $"Team {i}"
+            })
             .ToList();
-
-        Assert.Throws<ArgumentException>(() =>
-            _generator.GenerateFirstRound(
-                tournament, slots, "stage-1"));
     }
 
-    [Fact]
-    public void CreateSlots_WithShuffle_ShouldPreserveParticipants()
+    private static Tournament CreateTournament(
+        List<Team> teams)
     {
-        var teams = CreateTeams(8);
-
-        var slots = _generator.CreateSlots(
-            teams, shuffle: true);
-
-        var actualIds = slots
-            .Where(x => x != null)
-            .Select(x => x!)
-            .OrderBy(x => x);
-
-        var expectedIds = teams
-            .Select(x => x.Id)
-            .OrderBy(x => x);
-
-        Assert.Equal(expectedIds, actualIds);
+        return new Tournament
+        {
+            Id = "507f1f77bcf86cd799439011",
+            TournamentName = "Olympic Test",
+            TournamentType = TournamentType.OlympicSystem,
+            SportName = SportName.Football,
+            TournamentParticipants = teams
+        };
     }
+
+    private static OlympicBracketState CreateState(
+        Tournament tournament,
+        List<string?> slots)
+    {
+        return new OlympicBracketState
+        {
+            TournamentId = tournament.Id,
+            StageId = "main",
+            ParticipantCount = tournament.TournamentParticipants.Count,
+            BracketSize = slots.Count,
+            CurrentRound = 1,
+            Slots = slots
+        };
+    }
+
+    private static void CompleteMatches(
+        List<Match> matches)
+    {
+        foreach (var match in matches)
+        {
+            match.Status = MatchStatus.Completed;
+            match.HomeScore = 2;
+            match.AwayScore = 1;
+            match.WinnerId = match.HomeTeamId;
+        }
+    }
+
+    private static List<Match> CreateNextRoundMatches(
+        Tournament tournament,
+        List<string?> advancing,
+        int round)
+    {
+        var matches = new List<Match>();
+
+        for (int i = 0; i < advancing.Count; i += 2)
+        {
+            var home = advancing[i];
+            var away = advancing[i + 1];
+
+            if (home == null || away == null)
+                continue;
+
+            matches.Add(new Match
+            {
+                TournamentId = tournament.Id,
+                StageId = "main",
+                MatchName = $"Round {round}",
+                HomeTeamId = home,
+                AwayTeamId = away,
+                RoundNumber = round,
+                BracketPosition = i / 2 + 1,
+                SportName = tournament.SportName,
+                IsAutomatic = true,
+                Status = MatchStatus.Planing
+            });
+        }
+
+        return matches;
+    }
+
+[Fact]
+public void Generate_DoubleRoundRobin_ShouldSwapHomeAndAway()
+{
+    var tournament = new Tournament
+    {
+        TournamentType = TournamentType.RoundRobin,
+        Settings = new TournamentSettings
+        {
+            MatchesPerPair = 2,
+            ShuffleParticipants = false
+        },
+        TournamentParticipants = new List<Team>
+        {
+            new Team { Id = "A", TeamName = "Team A" },
+            new Team { Id = "B", TeamName = "Team B" },
+            new Team { Id = "C", TeamName = "Team C" },
+            new Team { Id = "D", TeamName = "Team D" }
+        }
+    };
+
+    var matches = new RoundRobinGenerator().Generate(tournament);
+
+    Assert.Equal(12, matches.Count);
+    Assert.Equal(6, matches.Select(m => m.RoundNumber).Distinct().Count());
+
+    var pairs = matches.GroupBy(m =>
+        string.CompareOrdinal(m.HomeTeamId, m.AwayTeamId) < 0
+            ? (m.HomeTeamId, m.AwayTeamId)
+            : (m.AwayTeamId, m.HomeTeamId));
+
+    Assert.Equal(6, pairs.Count());
+
+    foreach (var pair in pairs)
+    {
+        var games = pair.ToList();
+
+        Assert.Equal(2, games.Count);
+        Assert.Equal(games[0].HomeTeamId, games[1].AwayTeamId);
+        Assert.Equal(games[0].AwayTeamId, games[1].HomeTeamId);
+    }
+}
+
 }

@@ -32,8 +32,18 @@ namespace Beckend.Repositories.Matches
                 new CreateIndexModel<Match>(
                     indexKeys, options));
         }
+        public async Task<Match?> GetByIdAsync(IClientSessionHandle session,string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException(
+                    "Match ID cannot be empty.", nameof(id));
 
+            ArgumentNullException.ThrowIfNull(session);
 
+            return await _collection
+                .Find(session, m => m.Id == id)
+                .FirstOrDefaultAsync();
+        }
         public async Task<List<Match>> GetMatchesByTournamentIdAsync(string tournamentId)
         {
             if (string.IsNullOrWhiteSpace(tournamentId))
@@ -115,11 +125,17 @@ namespace Beckend.Repositories.Matches
                     m => m.Status, MatchStatus.Cancelled)
             );
 
+
             var update = Builders<Match>.Update
                 .Set(m => m.HomeScore, match.HomeScore)
                 .Set(m => m.AwayScore, match.AwayScore)
                 .Set(m => m.WinnerId, match.WinnerId)
-                .Set(m => m.Status, MatchStatus.Completed);
+                .Set(m => m.Status, MatchStatus.Completed)
+                .Set(m => m.ResultType, match.ResultType)
+                .Set(m => m.ResultReason, match.ResultReason)
+                .Set(m => m.ResultUpdatedBy, match.ResultUpdatedBy)
+                .Set(m => m.ResultUpdatedAt, match.ResultUpdatedAt);
+
 
             var result = await _collection.UpdateOneAsync(
                 session, filter, update);
@@ -127,16 +143,32 @@ namespace Beckend.Repositories.Matches
             return result.ModifiedCount == 1;
         }
 
-        public async Task<bool> HasUnfinishedMatchesAsync( IClientSessionHandle session,string tournamentId)
+
+        public async Task<bool> HasUnfinishedMatchesAsync(
+            IClientSessionHandle session,
+            string tournamentId)
         {
+            ArgumentNullException.ThrowIfNull(session);
+
+            if (string.IsNullOrWhiteSpace(tournamentId))
+                throw new ArgumentException(
+                    "Tournament ID cannot be empty.",
+                    nameof(tournamentId));
+
             var filter = Builders<Match>.Filter.And(
                 Builders<Match>.Filter.Eq(
                     m => m.TournamentId, tournamentId),
+
+                Builders<Match>.Filter.Ne(
+                    m => m.Status, MatchStatus.Cancelled),
+
                 Builders<Match>.Filter.Or(
                     Builders<Match>.Filter.Ne(
                         m => m.Status, MatchStatus.Completed),
+
                     Builders<Match>.Filter.Eq(
                         m => m.HomeScore, null),
+
                     Builders<Match>.Filter.Eq(
                         m => m.AwayScore, null)
                 )
@@ -146,6 +178,7 @@ namespace Beckend.Repositories.Matches
                 .Find(session, filter)
                 .AnyAsync();
         }
+
         public async Task<List<Match>> GetSwissMatchesAsync( IClientSessionHandle session, string tournamentId)
         {
             return await _collection
@@ -153,5 +186,60 @@ namespace Beckend.Repositories.Matches
                 .ToListAsync();
         }
 
+        public async Task<bool> UpdateEditableMatchAsync(Match match)
+        {
+            var filter = Builders<Match>.Filter.And(
+                Builders<Match>.Filter.Eq(m => m.Id, match.Id),
+                Builders<Match>.Filter.Eq(m => m.IsAutomatic, false),
+                Builders<Match>.Filter.Ne(
+                    m => m.Status, MatchStatus.Completed),
+                Builders<Match>.Filter.Ne(
+                    m => m.Status, MatchStatus.Cancelled)
+            );
+
+            var update = Builders<Match>.Update
+                .Set(m => m.MatchName, match.MatchName)
+                .Set(m => m.TicketCost, match.TicketCost)
+                .Set(m => m.MaxViewers, match.MaxViewers)
+                .Set(m => m.StartTime, match.StartTime)
+                .Set(m => m.HomeTeamId, match.HomeTeamId)
+                .Set(m => m.AwayTeamId, match.AwayTeamId)
+                .Set(m => m.SportName, match.SportName);
+
+            var result = await _collection.UpdateOneAsync(filter, update);
+
+            return result.MatchedCount == 1;
+        }
+
+        public async Task<bool> DeleteEditableMatchAsync(string id)
+        {
+            var filter = Builders<Match>.Filter.And(
+                Builders<Match>.Filter.Eq(m => m.Id, id),
+                Builders<Match>.Filter.Eq(m => m.IsAutomatic, false),
+                Builders<Match>.Filter.Ne(
+                    m => m.Status, MatchStatus.Completed),
+                Builders<Match>.Filter.Ne(
+                    m => m.Status, MatchStatus.Cancelled)
+            );
+
+            var result = await _collection.DeleteOneAsync(filter);
+
+            return result.DeletedCount == 1;
+        }
+        public async Task<List<Match>> GetMatchesByTournamentIdAsync(
+    IClientSessionHandle session,
+    string tournamentId)
+        {
+            ArgumentNullException.ThrowIfNull(session);
+
+            if (string.IsNullOrWhiteSpace(tournamentId))
+                throw new ArgumentException(
+                    "Tournament ID cannot be empty.",
+                    nameof(tournamentId));
+
+            return await _collection
+                .Find(session, m => m.TournamentId == tournamentId)
+                .ToListAsync();
+        }
     }
 }

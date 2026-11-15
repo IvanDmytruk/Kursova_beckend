@@ -25,4 +25,8 @@ public interface IOlympicBracketRepository
         IClientSessionHandle session,
         OlympicBracketState state,
         long expectedVersion);
+    Task<OlympicBracketState?> GetAsync(
+    IClientSessionHandle session,
+    string tournamentId,
+    string stageId);
 }

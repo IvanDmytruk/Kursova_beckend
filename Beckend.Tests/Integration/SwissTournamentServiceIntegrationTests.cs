@@ -12,6 +12,7 @@ using Moq;
 using Beckend.Repositories.TournamentGroups;
 using MongoDB.Driver;
 using Xunit;
+using Beckend.Repositories.TournamentAdministration;
 
 using Match = Beckend.Models.Match;
 
@@ -69,14 +70,16 @@ public class SwissTournamentServiceIntegrationTests
             groupStageGenerator,
             groupRepository.Object,
             new DoubleEliminationGenerator());
-
+            var tournamentAdministration =
+            new TournamentAdministrationRepository(fixture.Database);
         _resultService = new MatchResultService(
-            _matches,
-            _tournaments,
-            _byes,
-            fixture.Database.Client,
-            mapper.Object,
-            new DoubleEliminationGenerator());
+    _matches,
+    _tournaments,
+    _byes,
+    new TournamentAdministrationRepository(fixture.Database),
+    fixture.Database.Client,
+    mapper.Object,
+    new DoubleEliminationGenerator());
     }
 
     private async Task<Tournament> CreateTournamentAsync(

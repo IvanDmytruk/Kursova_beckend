@@ -7,8 +7,19 @@ namespace Beckend.Repositories.Tournaments
 {
     public class TournamentRepository : BaseRepository<Tournament>, ITournamentRepository
     {
-        public TournamentRepository(IMongoDatabase database)
-    : base(database, "Tournaments") { }
+        public TournamentRepository(IMongoDatabase database): base(database, "Tournaments") { }
+        public async Task<Tournament?> GetByIdAsync(  IClientSessionHandle session,string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException(
+                    "Tournament ID cannot be empty.", nameof(id));
+
+            ArgumentNullException.ThrowIfNull(session);
+
+            return await _collection
+                .Find(session, t => t.Id == id)
+                .FirstOrDefaultAsync();
+        }
         public async Task<Tournament?> GetTournamentByNameAsync(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
@@ -391,6 +402,40 @@ namespace Beckend.Repositories.Tournaments
 
             var result = await _collection.UpdateOneAsync(
                 session, filter, update);
+
+            return result.ModifiedCount == 1;
+        }
+        public async Task<bool> CompleteGroupStageAsync(
+            IClientSessionHandle session,
+            string tournamentId,
+            string championId)
+        {
+            ArgumentNullException.ThrowIfNull(session);
+
+            if (string.IsNullOrWhiteSpace(championId))
+                throw new ArgumentException(
+                    "Champion ID is required.",
+                    nameof(championId));
+
+            var filter = Builders<Tournament>.Filter.And(
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Id, tournamentId),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.TournamentType,
+                    TournamentType.GroupStage),
+                Builders<Tournament>.Filter.Eq(
+                    t => t.Status,
+                    TournamentStatus.InProgress)
+            );
+
+            var update = Builders<Tournament>.Update
+                .Set(t => t.Status, TournamentStatus.Completed)
+                .Set(t => t.ChampionId, championId);
+
+            var result = await _collection.UpdateOneAsync(
+                session,
+                filter,
+                update);
 
             return result.ModifiedCount == 1;
         }

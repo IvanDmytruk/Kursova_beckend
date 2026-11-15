@@ -2,6 +2,7 @@
 using Beckend.Enums;
 using Beckend.Models;
 using Beckend.Repositories.TournamentGroups;
+using Beckend.Repositories.TournamentAdministration;
 
 namespace Beckend.Services.TournamentStandings;
 
@@ -9,25 +10,44 @@ public class GroupStageStandingsGenerator
 {
     private readonly ITournamentGroupRepository _groupRepository;
     private readonly RoundRobinStandingsGenerator _roundRobin;
+    private readonly ITournamentAdministrationRepository _administration;
 
     public GroupStageStandingsGenerator(
         ITournamentGroupRepository groupRepository,
-        RoundRobinStandingsGenerator roundRobin)
+        RoundRobinStandingsGenerator roundRobin,
+        ITournamentAdministrationRepository administration)
     {
         _groupRepository = groupRepository;
         _roundRobin = roundRobin;
+        _administration = administration;
     }
 
     public async Task<TournamentStandingsDto> GenerateAsync(
         Tournament tournament,
         List<Match> matches)
     {
+        var groups = await _groupRepository
+            .GetByTournamentIdAsync(tournament.Id);
+
+        var participantStates = await _administration
+            .GetParticipantStatesAsync(tournament.Id);
+
+        return Generate(
+            tournament,
+            matches,
+            groups,
+            participantStates);
+    }
+
+    public TournamentStandingsDto Generate(
+        Tournament tournament,
+        List<Match> matches,
+        List<TournamentGroup> groups,
+        List<TournamentParticipantState> participantStates)
+    {
         if (tournament.TournamentType != TournamentType.GroupStage)
             throw new InvalidOperationException(
                 "Tournament is not GroupStage");
-
-        var groups = await _groupRepository
-            .GetByTournamentIdAsync(tournament.Id);
 
         if (groups.Count == 0)
             throw new InvalidOperationException(
@@ -53,6 +73,12 @@ public class GroupStageStandingsGenerator
 
         var groupIds = groups
             .Select(g => g.GroupId)
+            .ToHashSet();
+
+        var disqualifiedIds = participantStates
+            .Where(s =>
+                s.Status == TournamentParticipantStatus.Disqualified)
+            .Select(s => s.TeamId)
             .ToHashSet();
 
         var groupMatches = matches
@@ -102,13 +128,23 @@ public class GroupStageStandingsGenerator
                 groupTournament,
                 matchesInGroup);
 
+            var entries = standings.Sections.Single().Entries;
+
+            foreach (var entry in entries)
+            {
+                entry.IsDisqualified =
+                    disqualifiedIds.Contains(entry.ParticipantId);
+
+                entry.Status = entry.IsDisqualified
+                    ? "Disqualified"
+                    : "Active";
+            }
+
             sections.Add(new StandingsSectionDto
             {
                 SectionId = group.GroupId,
                 SectionName = group.GroupName,
-                Entries = standings.Sections
-                    .Single()
-                    .Entries
+                Entries = entries
             });
         }
 
@@ -120,4 +156,5 @@ public class GroupStageStandingsGenerator
             Sections = sections
         };
     }
+
 }

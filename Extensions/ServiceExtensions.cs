@@ -1,6 +1,7 @@
 ﻿using Beckend.Services.Auth;
 using Beckend.Services.Interfaces;
 using Beckend.Services.Matches;
+using Beckend.Services.Matches.Administration;
 using Beckend.Services.Matches.Generation;
 using Beckend.Services.Matches.Results;
 using Beckend.Services.Olympic;
@@ -9,10 +10,14 @@ using Beckend.Services.Search;
 using Beckend.Services.Sports;
 using Beckend.Services.Statistics;
 using Beckend.Services.Teams;
+using Beckend.Services.TournamentAccess;
+using Beckend.Services.TournamentAdministration;
+using Beckend.Services.TournamentGenerators;
 using Beckend.Services.TournamentPlanning;
 using Beckend.Services.Tournaments;
 using Beckend.Services.Tournaments.Lifecycle;
 using Beckend.Services.Tournaments.Registration;
+using Beckend.Services.TournamentStaff;
 using Beckend.Services.TournamentStandings;
 using Beckend.Services.Users;
 
@@ -25,42 +30,26 @@ public static class ServiceExtensions
     {
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IUserService, UserService>();
-
         services.AddScoped<ITournamentService, TournamentService>();
-        services.AddScoped<
-            ITournamentRegistrationService,
-            TournamentRegistrationService>();
-        services.AddScoped<
-            ITournamentLifecycleService,
-            TournamentLifecycleService>();
-
+        services.AddScoped<  ITournamentRegistrationService,TournamentRegistrationService>();
+        services.AddScoped< ITournamentLifecycleService,TournamentLifecycleService>();
         services.AddScoped<ITeamService, TeamService>();
-
         services.AddScoped<IMatchService, MatchService>();
-        services.AddScoped<
-            IMatchGenerationService,
-            MatchGenerationService>();
-        services.AddScoped<
-            IMatchResultService,
-            MatchResultService>();
-
+        services.AddScoped< IMatchGenerationService,MatchGenerationService>();
+        services.AddScoped<IMatchResultService,MatchResultService>();
         services.AddScoped<IStatisticService, StatisticService>();
         services.AddScoped<ISportService, SportService>();
         services.AddScoped<ISearchService, SearchService>();
-
         services.AddScoped<StandingsService>();
-
-        services.AddScoped<
-            ITournamentPlanningService,
-            TournamentPlanningService>();
-        services.AddScoped<
-            ITournamentPlanEvaluator,
-            TournamentPlanEvaluator>();
-
-        services.AddScoped<
-            IOlympicBracketService,
-            OlympicBracketService>();
-
+        services.AddScoped< ITournamentPlanningService,TournamentPlanningService>();
+        services.AddScoped<ITournamentPlanEvaluator,TournamentPlanEvaluator>();
+        services.AddScoped<IOlympicBracketService, OlympicBracketService>();
+        services.AddScoped<IMatchAdministrationService, MatchAdministrationService>();
+        services.AddScoped< ITournamentAccessService,TournamentAccessService>();
+        services.AddScoped<ITournamentStaffService,TournamentStaffService>();
+        services.AddScoped<ITournamentAdministrationService, TournamentAdministrationService>();
+        services.AddScoped<DisqualificationPlanner>();
+        services.AddScoped<GroupStagePlayoffService>();
         return services;
     }
 }

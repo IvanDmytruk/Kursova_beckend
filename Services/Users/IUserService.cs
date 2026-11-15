@@ -12,11 +12,9 @@ public interface IUserService
 
     Task<List<UserDto>> GetAllCoachesAsync();
 
-    Task<List<UserDto>> GetPlayersAndCoachesByAgeRangeAsync(
-        int minAge,
-        int maxAge);
+    Task<List<UserDto>> GetPlayersAndCoachesByAgeRangeAsync( int minAge,int maxAge);
 
-    bool IsPlayerOrCoach(User user);
+    Task<bool> IsPlayerOrCoachAsync(User? user);
 
     Task<UserDto> GetPlayerOrCoachByIdAsync(string id);
 
@@ -26,9 +24,7 @@ public interface IUserService
 
     Task<UserDto> CreateAsync(CreateUserDto dto);
 
-    Task<UserDto> UpdateAsync(
-        string id,
-        UpdateUserDto dto);
+    Task<UserDto> UpdateAsync( string id,UpdateUserDto dto);
 
     Task<bool> DeleteAsync(string id);
 }

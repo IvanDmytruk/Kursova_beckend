@@ -12,6 +12,7 @@ using Beckend.Services.TournamentGenerators;
 using MongoDB.Driver;
 using Moq;
 using Xunit;
+using Beckend.Repositories.TournamentAdministration;
 
 using Match = Beckend.Models.Match;
 
@@ -55,11 +56,16 @@ public class DoubleEliminationIntegrationTests : IClassFixture<MongoDbFixture>
             new GroupStageGenerator(roundRobin),
             groupRepository.Object,
             doubleElimination);
-
-        _results = new MatchResultService(
-            _matches, _tournaments, _byes,
-            fixture.Database.Client, mapper.Object,
-            doubleElimination);
+            var tournamentAdministration =
+            new TournamentAdministrationRepository(fixture.Database);
+       _results = new MatchResultService(
+    _matches,
+    _tournaments,
+    _byes,
+    new TournamentAdministrationRepository(fixture.Database),
+    fixture.Database.Client,
+    mapper.Object,
+    doubleElimination);
     }
 
     private async Task<Tournament> CreateTournamentAsync(int teamCount = 4)

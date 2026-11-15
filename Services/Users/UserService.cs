@@ -65,20 +65,34 @@ namespace Beckend.Services.Users
             return _mapper.Map<List<UserDto>>(users);
         }
 
-        public bool IsPlayerOrCoach(User user)
+        public async Task<bool> IsPlayerOrCoachAsync(User? user)
         {
-            return user != null && (user.Role == UserRole.Player || user.Role == UserRole.Coach);
+            if (user == null)
+                return false;
+
+            return await _userRepository.HasTeamRoleAsync(
+                user.Id,
+                TeamRole.Player,
+                TeamRole.Coach);
         }
 
         public async Task<UserDto> GetPlayerOrCoachByIdAsync(string id)
         {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("User ID is required");
+
             var user = await _userRepository.GetByIdAsync(id);
 
             if (user == null)
-                throw new KeyNotFoundException($"User with id {id} not found");
+                throw new KeyNotFoundException(
+                    $"User with id {id} not found");
 
-            if (!IsPlayerOrCoach(user))
-                throw new UnauthorizedAccessException($"User with id {id} is not a player or coach");
+            var isPlayerOrCoach =
+                await IsPlayerOrCoachAsync(user);
+
+            if (!isPlayerOrCoach)
+                throw new UnauthorizedAccessException(
+                    $"User with id {id} is not a player or coach");
 
             return _mapper.Map<UserDto>(user);
         }

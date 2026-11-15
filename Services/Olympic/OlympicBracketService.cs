@@ -14,12 +14,14 @@ namespace Beckend.Services.Olympic;
 public class OlympicBracketService : IOlympicBracketService
 {
     private const string MainStageId = "main";
+    private const string PlayoffStageId = "playoff";
 
     private readonly ITournamentRepository _tournaments;
     private readonly IMatchRepository _matches;
     private readonly IOlympicBracketRepository _brackets;
     private readonly OlympicGenerator _generator;
     private readonly IMongoClient _mongoClient;
+
 
     public OlympicBracketService(
         ITournamentRepository tournaments,
@@ -143,9 +145,8 @@ public class OlympicBracketService : IOlympicBracketService
     {
         var tournament = await GetTournamentAsync(tournamentId);
 
-        if (tournament.TournamentType != TournamentType.OlympicSystem)
-            throw new InvalidOperationException(
-                "Tournament must use OlympicSystem.");
+        string stageId = ResolveStageId(tournament.TournamentType);
+
         if (tournament.Status != TournamentStatus.InProgress &&
             tournament.Status != TournamentStatus.Completed)
         {
@@ -153,9 +154,7 @@ public class OlympicBracketService : IOlympicBracketService
                 "Next rounds require InProgress or Completed status.");
         }
 
-
-        var state = await _brackets.GetAsync(
-            tournamentId, MainStageId);
+        var state = await _brackets.GetAsync(tournamentId, stageId);
 
         if (state == null || state.CurrentRound < 1)
             throw new InvalidOperationException(
@@ -253,8 +252,12 @@ public class OlympicBracketService : IOlympicBracketService
                         throw new InvalidOperationException(
                             "Bracket was modified by another request.");
 
-                    bool tournamentCompleted =
-                        await _tournaments.CompleteOlympicTournamentAsync(
+                    bool tournamentCompleted = tournament.TournamentType == TournamentType.GroupStage
+                        ? await _tournaments.CompleteGroupStageAsync(
+                            session,
+                            tournamentId,
+                            advancing[0]!)       
+                        : await _tournaments.CompleteOlympicTournamentAsync(            
                             session,
                             tournamentId);
 
@@ -378,5 +381,15 @@ public class OlympicBracketService : IOlympicBracketService
         return await _tournaments.GetByIdAsync(tournamentId)
             ?? throw new KeyNotFoundException(
                 "Tournament not found.");
+    }
+    private static string ResolveStageId(TournamentType type)
+    {
+        return type switch
+        {
+            TournamentType.OlympicSystem => MainStageId,
+            TournamentType.GroupStage => PlayoffStageId,
+            _ => throw new InvalidOperationException(
+                "Tournament does not support Olympic brackets.")
+        };
     }
 }

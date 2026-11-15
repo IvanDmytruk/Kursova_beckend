@@ -11,4 +11,8 @@ public interface ITournamentGroupRepository
 
     Task<List<TournamentGroup>> GetByTournamentIdAsync(
         string tournamentId);
+
+    Task<List<TournamentGroup>> GetByTournamentIdAsync(
+        IClientSessionHandle session,
+        string tournamentId);
 }

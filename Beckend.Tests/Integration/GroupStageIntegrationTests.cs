@@ -13,6 +13,7 @@ using Moq;
 using MongoDB.Driver;
 using Xunit;
 using Match = Beckend.Models.Match;
+using Beckend.Repositories.TournamentAdministration;
 
 namespace Beckend.Tests.Integration;
 
@@ -52,9 +53,9 @@ public class GroupStageIntegrationTests : IClassFixture<MongoDbFixture>
             _groups,
             new DoubleEliminationGenerator());
 
-        _standings = new GroupStageStandingsGenerator(
-            _groups,
-            new RoundRobinStandingsGenerator());
+        _standings = new GroupStageStandingsGenerator(_groups,
+    new RoundRobinStandingsGenerator(),
+    new TournamentAdministrationRepository(fixture.Database));
             
     }
 
@@ -307,4 +308,71 @@ public class GroupStageIntegrationTests : IClassFixture<MongoDbFixture>
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _standings.GenerateAsync(tournament, savedMatches));
     }
+    [Fact]
+public async Task Standings_DisqualifiedTeam_ShouldKeepStatisticsAndShowStatus()
+{
+    // Arrange
+    var tournament = await CreateTournamentAsync();
+
+    await _generation.GenerateGroupStageAsync(tournament.Id);
+
+    var matches = await SavedMatchesAsync(tournament.Id);
+    var groups = await SavedGroupsAsync(tournament.Id);
+
+    var firstGroup = groups[0];
+
+    var match = matches.First(m =>
+        m.GroupId == firstGroup.GroupId);
+
+    await CompleteMatchAsync(match, 3, 1);
+
+    var disqualifiedTeamId = match.HomeTeamId;
+
+    var state = new TournamentParticipantState
+    {
+        TournamentId = tournament.Id,
+        TeamId = disqualifiedTeamId,
+        Status = TournamentParticipantStatus.Disqualified,
+        Reason = "Integration test disqualification",
+        UpdatedBy = "test-admin",
+        UpdatedAt = DateTime.UtcNow
+    };
+
+    await _fixture.Database
+        .GetCollection<TournamentParticipantState>(
+            "TournamentParticipantStates")
+        .InsertOneAsync(state);
+
+    // Act
+    var standings = await _standings.GenerateAsync(
+        tournament,
+        await SavedMatchesAsync(tournament.Id));
+
+    // Assert
+    var section = standings.Sections.Single(s =>
+        s.SectionId == firstGroup.GroupId);
+
+    var entry = section.Entries.Single(e =>
+        e.ParticipantId == disqualifiedTeamId);
+
+    Assert.True(entry.IsDisqualified);
+    Assert.Equal("Disqualified", entry.Status);
+
+    // Статистика завершеного матчу не змінюється.
+    Assert.Equal(1, entry.Played);
+    Assert.Equal(1, entry.Wins);
+    Assert.Equal(3m, entry.Points);
+    Assert.Equal(2, entry.ScoreDifference);
+
+    // Інші команди не дискваліфіковані.
+    Assert.All(
+        standings.Sections
+            .SelectMany(s => s.Entries)
+            .Where(e => e.ParticipantId != disqualifiedTeamId),
+        e =>
+        {
+            Assert.False(e.IsDisqualified);
+            Assert.Equal("Active", e.Status);
+        });
+}
 }

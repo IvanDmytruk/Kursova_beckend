@@ -15,9 +15,10 @@ public sealed class DoubleEliminationGenerationResult
 public sealed class DoubleEliminationGenerator
 {
     public DoubleEliminationGenerationResult Generate(
-        Tournament tournament,
-        IReadOnlyList<Match> existingMatches,
-        IReadOnlyList<string> previousByeTeamIds)
+     Tournament tournament,
+     IReadOnlyList<Match> existingMatches,
+     IReadOnlyList<string> previousByeTeamIds,
+     IReadOnlyCollection<string>? disqualifiedTeamIds = null)
     {
         ArgumentNullException.ThrowIfNull(tournament);
         ArgumentNullException.ThrowIfNull(existingMatches);
@@ -41,7 +42,13 @@ public sealed class DoubleEliminationGenerator
             throw new ArgumentException(
                 "Participant IDs must be unique and non-empty.");
         }
+        var disqualified = disqualifiedTeamIds?.ToHashSet() ?? new HashSet<string>();
 
+        if (disqualified.Any(id => !ids.Contains(id)))
+        {
+            throw new ArgumentException(
+                "Disqualified team is not a tournament participant.");
+        }
         var records = ids.ToDictionary(
             id => id,
             id => new TeamRecord(id));
@@ -93,10 +100,7 @@ public sealed class DoubleEliminationGenerator
             records[loserId].Losses++;
         }
 
-        var active = records.Values
-            .Where(r => r.Losses < 2)
-            .ToList();
-
+        var active = records.Values .Where(r => r.Losses < 2 && !disqualified.Contains(r.TeamId)) .ToList();
         var result = new DoubleEliminationGenerationResult();
 
         if (active.Count == 1)

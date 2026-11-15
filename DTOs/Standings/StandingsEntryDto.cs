@@ -23,5 +23,6 @@ namespace Beckend.DTOs.Standings
         public string Record => $"{Wins}-{Losses}";
 
         public string Status { get; set; } = "Active";
+        public bool IsDisqualified { get; set; }
     }
 }

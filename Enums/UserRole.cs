@@ -1,10 +1,7 @@
-﻿namespace Beckend.Enums
+﻿namespace Beckend.Enums;
+
+public enum UserRole
 {
-    public enum UserRole
-    {
-        User = 0,
-        Player = 1,
-        Coach = 2,
-        Admin = 3
-    }
+    User = 0,
+    Admin = 3
 }

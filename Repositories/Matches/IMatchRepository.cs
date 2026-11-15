@@ -6,6 +6,7 @@ namespace Beckend.Repositories.Matches;
 
 public interface IMatchRepository : IRepository<Match>
 {
+    Task<Match?> GetByIdAsync(IClientSessionHandle session, string id);
     Task<List<Match>> GetMatchesByTournamentIdAsync(string tournamentId);
     Task CreateManyAsync(List<Match> matches);
     Task<List<Match>> GetMatchesByTeamIdAsync(string teamId);
@@ -16,6 +17,10 @@ public interface IMatchRepository : IRepository<Match>
     Task CreateManyAsync(IClientSessionHandle session, List<Match> matches);
     Task<bool> CompleteMatchAsync(IClientSessionHandle session, Match match);
     Task<bool> HasUnfinishedMatchesAsync(IClientSessionHandle session, string tournamentId);
-    Task<List<Match>> GetSwissMatchesAsync(IClientSessionHandle session, string tournamentId);  
-
+    Task<List<Match>> GetSwissMatchesAsync(IClientSessionHandle session, string tournamentId);
+    Task<bool> UpdateEditableMatchAsync(Match match);
+    Task<bool> DeleteEditableMatchAsync(string id);
+    Task<List<Match>> GetMatchesByTournamentIdAsync(
+    IClientSessionHandle session,
+    string tournamentId);
 }

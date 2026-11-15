@@ -54,13 +54,17 @@ namespace Beckend.Services.Search
                 });
             }
 
-            var players = await _userRepository.SearchPlayersAndCoachesAsync(searchTerm);
-            foreach (var player in players.Where(p => p.Role == UserRole.Player))
+            var players = await _userRepository.SearchPlayersAsync(searchTerm);
+
+            foreach (var player in players)
             {
                 var popularityScore = 0;
-                if (player is ExtendedUser extendedUser && extendedUser.PlayerProfile != null)
+
+                if (player is ExtendedUser extendedUser &&
+                    extendedUser.PlayerProfile != null)
                 {
-                    popularityScore = extendedUser.PlayerProfile.PopularityScore;
+                    popularityScore =
+                        extendedUser.PlayerProfile.PopularityScore;
                 }
 
                 suggestions.Add(new

@@ -71,9 +71,13 @@ public class MatchService : IMatchService
 
         return _mapper.Map<List<MatchDto>>(matches);
     }
-
-    public async Task<List<MatchDto>> GetMatchesStartingSoonAsync(int hours = 24)
+    public async Task<List<MatchDto>> GetMatchesStartingSoonAsync(
+        int hours = 24)
     {
+        if (hours <= 0)
+            throw new ArgumentException(
+                "Hours must be greater than zero");
+
         var now = DateTime.UtcNow;
         var soon = now.AddHours(hours);
 
@@ -82,7 +86,6 @@ public class MatchService : IMatchService
 
         return _mapper.Map<List<MatchDto>>(matches);
     }
-
     public async Task<List<MatchDto>> GetMatchesByDateRangeAsync(DateTime start, DateTime end)
     {
         if (start > end)
@@ -127,7 +130,21 @@ public class MatchService : IMatchService
         if (exists)
             throw new InvalidOperationException(
                 $"Match with name '{createDto.MatchName}' already exists");
+        if (createDto == null)
+            throw new ArgumentNullException(nameof(createDto));
 
+        if (string.IsNullOrWhiteSpace(createDto.TournamentId))
+            throw new ArgumentException("Tournament ID is required");
+
+        if (string.IsNullOrWhiteSpace(createDto.SportName) ||
+            !Enum.TryParse<SportName>(
+                createDto.SportName,
+                true,
+                out var sport) ||
+            !Enum.IsDefined(sport))
+        {
+            throw new ArgumentException("Invalid sport name");
+        }
         if (createDto.StartTime < DateTime.UtcNow)
             throw new ArgumentException(
                 "Start time cannot be in the past");
@@ -178,7 +195,36 @@ public class MatchService : IMatchService
             throw new InvalidOperationException(
                 "Cannot modify a completed or cancelled match");
         }
+        if (updateDto == null)
+            throw new ArgumentNullException(nameof(updateDto));
 
+        if (string.IsNullOrWhiteSpace(updateDto.MatchName))
+            throw new ArgumentException("Match name is required");
+
+        if (updateDto.TicketCost < 0)
+            throw new ArgumentException("Ticket cost cannot be negative");
+
+        if (updateDto.MaxViewers <= 0)
+            throw new ArgumentException("Max viewers must be greater than 0");
+
+        if (string.IsNullOrWhiteSpace(updateDto.HomeTeamId) ||
+            string.IsNullOrWhiteSpace(updateDto.AwayTeamId))
+        {
+            throw new ArgumentException("Both teams are required");
+        }
+
+        if (updateDto.HomeTeamId == updateDto.AwayTeamId)
+            throw new ArgumentException("Teams cannot be the same");
+
+        if (updateDto.StartTime.HasValue &&
+            updateDto.StartTime.Value < DateTime.UtcNow)
+        {
+            throw new ArgumentException("Start time cannot be in the past");
+        }
+
+        if (updateDto.TournamentId != existing.TournamentId)
+            throw new ArgumentException(
+                "Changing a match tournament is not allowed");
         if (existing.MatchName != updateDto.MatchName)
         {
             var exists = await MatchExistsAsync(updateDto.MatchName);
@@ -192,7 +238,13 @@ public class MatchService : IMatchService
 
         existing.Id = id;
 
-        await _matchRepository.UpdateAsync(id, existing);
+        var updated = await _matchRepository.UpdateEditableMatchAsync(existing);
+
+        if (!updated)
+        {
+            throw new InvalidOperationException(
+                "Match was changed, completed, cancelled or deleted.");
+        }
 
         return _mapper.Map<MatchDto>(existing);
     }
@@ -210,8 +262,18 @@ public class MatchService : IMatchService
                 "Automatically generated matches cannot be deleted " +
                 "through the regular delete endpoint.");
         }
+        if (existing.Status == MatchStatus.Completed || existing.Status == MatchStatus.Cancelled)
+        {
+            throw new InvalidOperationException(
+                "Cannot delete a completed or cancelled match");
+        }
+        var deleted = await _matchRepository.DeleteEditableMatchAsync(id);
 
-        await _matchRepository.DeleteAsync(id);
+        if (!deleted)
+        {
+            throw new InvalidOperationException(
+                "Match was changed, completed, cancelled or deleted.");
+        }
 
         return true;
     }

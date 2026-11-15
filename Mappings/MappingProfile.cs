@@ -80,9 +80,12 @@ namespace Beckend.Mappings
                 .ForMember(d => d.SportName,
                     o => o.MapFrom(s =>
                         Enum.Parse<SportName>(s.SportName, true)));
-
             CreateMap<UpdateMatchDto, Match>()
                 .ForMember(d => d.Id, o => o.Ignore())
+                .ForMember(d => d.TournamentId, o => o.Ignore())
+                .ForMember(d => d.Status, o => o.Ignore())
+                .ForMember(d => d.StartTime, o => o.Condition(
+                    src => src.StartTime.HasValue))
                 .ForMember(d => d.SportName,
                     o => o.MapFrom(s =>
                         Enum.Parse<SportName>(s.SportName, true)));

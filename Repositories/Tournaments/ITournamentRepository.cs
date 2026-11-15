@@ -8,6 +8,7 @@ namespace Beckend.Repositories.Tournaments;
 
 public interface ITournamentRepository : IRepository<Tournament>
 {
+    Task<Tournament?> GetByIdAsync(IClientSessionHandle session,string id);
     Task<Tournament?> GetTournamentByNameAsync(string name);
 
     Task<List<Tournament>> GetTournamentsByNameSearchAsync(
@@ -76,4 +77,8 @@ public interface ITournamentRepository : IRepository<Tournament>
         string tournamentId,
         string championId,
         int expectedRound);
+    Task<bool> CompleteGroupStageAsync(
+    IClientSessionHandle session,
+    string tournamentId,
+    string championId);
 }

@@ -53,6 +53,20 @@ namespace Beckend.Models
         [BsonElement("BracketPosition")]
         [BsonIgnoreIfDefault]
         public int BracketPosition { get; set; }
+
+        [BsonElement("ResultType")]
+        public MatchResultType ResultType { get; set; }
+            = MatchResultType.Normal;
+
+        [BsonElement("ResultReason")]
+        public string? ResultReason { get; set; }
+
+        [BsonElement("ResultUpdatedBy")]
+        public string? ResultUpdatedBy { get; set; }
+
+        [BsonElement("ResultUpdatedAt")]
+        public DateTime? ResultUpdatedAt { get; set; }
+
         public Match()
         {
             Id = ObjectId.GenerateNewId().ToString();

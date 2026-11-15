@@ -112,6 +112,16 @@ public class OlympicBracketRepository : IOlympicBracketRepository
 
         return result.ModifiedCount == 1;
     }
-
+    public async Task<OlympicBracketState?> GetAsync(
+    IClientSessionHandle session,
+    string tournamentId,
+    string stageId)
+    {
+        return await _collection
+            .Find(session, x =>
+                x.TournamentId == tournamentId &&
+                x.StageId == stageId)
+            .FirstOrDefaultAsync();
+    }
 
 }

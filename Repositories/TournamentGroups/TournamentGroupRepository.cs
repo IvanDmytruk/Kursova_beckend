@@ -44,4 +44,17 @@ public class TournamentGroupRepository : ITournamentGroupRepository
             .SortBy(g => g.GroupId)
             .ToListAsync();
     }
+
+    public async Task<List<TournamentGroup>> GetByTournamentIdAsync(
+        IClientSessionHandle session,
+        string tournamentId)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+
+        return await _collection
+            .Find(session, g => g.TournamentId == tournamentId)
+            .SortBy(g => g.GroupId)
+            .ToListAsync();
+    }
+
 }

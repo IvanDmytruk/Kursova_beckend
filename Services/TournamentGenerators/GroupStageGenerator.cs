@@ -56,7 +56,18 @@ public class GroupStageGenerator
 
         int teamsPerGroup = participants.Count / groupsCount;
         int advancingPerGroup = advancing / groupsCount;
+        if (groupsCount < 2 ||
+    (groupsCount & (groupsCount - 1)) != 0)
+        {
+            throw new InvalidOperationException(
+                "Playoff requires a power-of-two group count (2, 4, 8...).");
+        }
 
+        if (advancingPerGroup != 2)
+        {
+            throw new InvalidOperationException(
+                "Current playoff seeding requires exactly 2 advancing teams per group.");
+        }
         if (advancingPerGroup >= teamsPerGroup)
             throw new InvalidOperationException(
                 "Too many advancing teams per group");

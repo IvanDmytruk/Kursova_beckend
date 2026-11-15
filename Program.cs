@@ -1,12 +1,15 @@
-﻿using Beckend.JWT;
+﻿using Beckend.Extensions;
+using Beckend.JWT;
 using Beckend.Mappings;
+using Beckend.Repositories.TournamentStaffs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using MongoDB.Driver;
 using System.Security.Claims;
 using System.Text;
-using Beckend.Extensions;
+using System.Text.Json.Serialization;
+
 
 var builder = WebApplication.CreateBuilder(args);
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
@@ -39,7 +42,12 @@ builder.Services.AddAutoMapper(
     cfg => { },
     typeof(MappingProfile)
 );
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter());
+    });
 var mongoConnectionString = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING")
     ?? builder.Configuration.GetConnectionString("MongoDB");
 if (string.IsNullOrEmpty(mongoConnectionString))
@@ -101,8 +109,6 @@ builder.Services.AddSwaggerGen(c =>
         });
 });
 
-
-
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -130,9 +136,17 @@ builder.Services
             };
     });
 
-
 builder.Services.AddAuthorization();
+
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var staffRepository = scope.ServiceProvider
+        .GetRequiredService<ITournamentStaffRepository>();
+
+    await staffRepository.EnsureIndexesAsync();
+}
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler(exceptionApp =>

@@ -1,4 +1,4 @@
-﻿
+﻿using System.Text.Json.Serialization;
 using Beckend.Enums;
 using Beckend.JWT;
 using Beckend.Models;
@@ -14,15 +14,14 @@ namespace Beckend.Controllers
     {
         private readonly IMongoCollection<User> _users;
         private readonly IMongoCollection<UserSession> _userSessions;
-        private readonly TokenService _tokenService;
+        private readonly ITokenService _tokenService;
 
         public AuthController(
             IMongoDatabase database,
-            TokenService tokenService)
+            ITokenService tokenService)
         {
             _users = database.GetCollection<User>("Users");
-            _userSessions =
-                database.GetCollection<UserSession>("UserSessions");
+            _userSessions =database.GetCollection<UserSession>("UserSessions");
             _tokenService = tokenService;
         }
 

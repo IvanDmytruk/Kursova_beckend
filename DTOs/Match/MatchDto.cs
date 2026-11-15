@@ -1,4 +1,6 @@
-﻿namespace Beckend.DTOs
+﻿using Beckend.Enums;
+
+namespace Beckend.DTOs
 {
     public class MatchDto
     {
@@ -26,5 +28,9 @@
 
         public string? WinnerId { get; set; }
         public bool IsAutomatic { get; set; }
+        public MatchResultType ResultType { get; set; }
+        public string? ResultReason { get; set; }
+        public string? ResultUpdatedBy { get; set; }
+        public DateTime? ResultUpdatedAt { get; set; }
     }
 }

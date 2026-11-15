@@ -4,9 +4,11 @@ using Beckend.Repositories.Sports;
 using Beckend.Repositories.Statistics;
 using Beckend.Repositories.Swiss;
 using Beckend.Repositories.Teams;
-using Beckend.Repositories.Tournaments;
-using Beckend.Repositories.Users;
 using Beckend.Repositories.TournamentGroups;
+using Beckend.Repositories.Tournaments;
+using Beckend.Repositories.TournamentStaffs;
+using Beckend.Repositories.Users;
+using Beckend.Repositories.TournamentAdministration;
 
 namespace Beckend.Extensions;
 
@@ -24,7 +26,8 @@ public static class RepositoryExtensions
         services.AddScoped<ISwissByeRepository, SwissByeRepository>();
         services.AddScoped<IOlympicBracketRepository, OlympicBracketRepository>();
         services.AddScoped<ITournamentGroupRepository, TournamentGroupRepository>();
-
+        services.AddScoped< ITournamentStaffRepository, TournamentStaffRepository>();
+        services.AddScoped<ITournamentAdministrationRepository, TournamentAdministrationRepository>();
         return services;
     }
 }

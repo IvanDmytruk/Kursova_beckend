@@ -433,4 +433,61 @@ public class TeamMembershipController : ControllerBase
 
         return await RemoveMember(teamId, actor);
     }
+
+    [HttpGet("users/search")]
+    public async Task<IActionResult> SearchUsers(
+        [FromQuery] string? term,
+        CancellationToken ct)
+    {
+        var actor = CurrentUserId;
+
+        if (string.IsNullOrWhiteSpace(actor))
+            return Unauthorized();
+
+        var search = term?.Trim() ?? "";
+
+        if (search.Length < 2)
+        {
+            return BadRequest(new
+            {
+                message = "Введіть щонайменше 2 символи"
+            });
+        }
+
+        if (search.Length > 60)
+        {
+            return BadRequest(new
+            {
+                message = "Пошуковий запит занадто довгий"
+            });
+        }
+
+        var pattern =
+            System.Text.RegularExpressions.Regex.Escape(search);
+
+        var regex = new BsonRegularExpression(pattern, "i");
+
+        var filter = Builders<User>.Filter.Or(
+            Builders<User>.Filter.Regex(u => u.Name, regex),
+            Builders<User>.Filter.Regex(u => u.Surname, regex)
+        );
+
+        var users = await _users
+            .Find(filter)
+            .Limit(15)
+            .ToListAsync(ct);
+
+        var result = users
+            .Where(u => u.Id != actor)
+            .Select(u => new
+            {
+                u.Id,
+                u.Name,
+                u.Surname
+            })
+            .ToList();
+
+        return Ok(result);
+    }
+
 }

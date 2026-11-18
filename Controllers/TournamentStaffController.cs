@@ -19,16 +19,18 @@ public class TournamentStaffController : ControllerBase
     private readonly ITournamentStaffService _staffService;
     private readonly ITournamentStaffRepository _staffRepository;
     private readonly IMongoCollection<Tournament> _tournaments;
-
     public TournamentStaffController(
         ITournamentStaffService staffService,
         ITournamentStaffRepository staffRepository,
-        IMongoCollection<Tournament> tournaments)
+        IMongoDatabase database)
     {
         _staffService = staffService;
         _staffRepository = staffRepository;
-        _tournaments = tournaments;
+
+        _tournaments = database
+            .GetCollection<Tournament>("Tournaments");
     }
+
 
     private string? CurrentUserId =>
     User.FindFirstValue(ClaimTypes.NameIdentifier)

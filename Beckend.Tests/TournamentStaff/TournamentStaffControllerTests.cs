@@ -31,16 +31,26 @@ private readonly Mock<IMongoCollection<Tournament>> _tournaments = new();
 
 private readonly TournamentStaffController _controller;
 
+
 public TournamentStaffControllerTests()
 {
+    var databaseMock = new Mock<IMongoDatabase>();
+
+    databaseMock
+        .Setup(db => db.GetCollection<Tournament>(
+            "Tournaments",
+            It.IsAny<MongoCollectionSettings>()))
+        .Returns(_tournaments.Object);
+
     _controller = new TournamentStaffController(
         _service.Object,
         _staffRepository.Object,
-        _tournaments.Object
+        databaseMock.Object
     );
 
     SetUser(OrganizerId);
 }
+
 
 
     private void SetUser(string? userId)

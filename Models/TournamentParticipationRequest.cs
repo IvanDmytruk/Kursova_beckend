@@ -1,39 +1,43 @@
-﻿
-using MongoDB.Bson;
+﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace Beckend.Models
+namespace Beckend.Models;
+
+public enum ParticipationRequestType
 {
-    public enum ParticipationRequestType
-    {
-        Application,
-        Invitation
-    }
-    public enum ParticipationRequestStatus
-    {
-        Pending,
-        Accepted,
-        Rejected,
-        Cancelled
-    }
-    public class TournamentParticipationRequest
-    {
-        [BsonId]
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; } =
-            ObjectId.GenerateNewId().ToString();
+    Application,
+    Invitation
+}
 
-        public string TournamentId { get; set; } = "";
-        public string TeamId { get; set; } = "";
+public enum ParticipationRequestStatus
+{
+    Pending,
+    Accepted,
+    Rejected,
+    Cancelled
+}
 
-        public ParticipationRequestType Type { get; set; }
-        public ParticipationRequestStatus Status { get; set; } =
-            ParticipationRequestStatus.Pending;
+public class TournamentParticipationRequest
+{
+    [BsonId]
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string Id { get; set; } =
+        ObjectId.GenerateNewId().ToString();
 
-        public string CreatedByUserId { get; set; } = "";
-        public string? ReviewedByUserId { get; set; }
+    public string TournamentId { get; set; } = string.Empty;
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime? ReviewedAt { get; set; }
-    }
+    public string TeamId { get; set; } = string.Empty;
+
+    public string PlayerId { get; set; } = string.Empty;
+
+    public ParticipationRequestType Type { get; set; }
+
+    public ParticipationRequestStatus Status { get; set; } =
+        ParticipationRequestStatus.Pending;
+
+    public string CreatedByUserId { get; set; } = string.Empty;
+    public string? ReviewedByUserId { get; set; }
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? ReviewedAt { get; set; }
 }

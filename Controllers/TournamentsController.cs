@@ -166,51 +166,13 @@ namespace Beckend.Controllers
         }
         [Authorize]
         [HttpPost("{tournamentId}/register")]
-        public async Task<IActionResult> RegisterForTournament(string tournamentId, [FromBody] RegisterForTournamentRequest request)
+        public IActionResult RegisterForTournament(string tournamentId)
         {
-            try
+            return StatusCode(410, new
             {
-                var userId =
-                    User.FindFirstValue(ClaimTypes.NameIdentifier)
-                    ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-
-                if (string.IsNullOrEmpty(userId))
-                    return Unauthorized("User not authenticated");
-
-                var tournament = await _tournamentService.GetByIdAsync(tournamentId);
-                if (tournament == null)
-                    return NotFound("Tournament not found");
-
-                if (tournament.Format == TournamentFormat.Individual.ToString())
-                {
-                    await _registrationService.RegisterPlayerAsync(tournamentId, userId);
-                    return Ok(new { message = "Player successfully registered for tournament" });
-                }
-                else if (tournament.Format == TournamentFormat.Command.ToString())
-                {
-                    if (string.IsNullOrEmpty(request?.TeamId))
-                        return BadRequest("TeamId is required for team tournament");
-
-                    await _registrationService.RegisterTeamAsync(tournamentId, request.TeamId);
-                    return Ok(new { message = "Team successfully registered for tournament" });
-                }
-                else
-                {
-                    return BadRequest("Unknown tournament format");
-                }
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(ex.Message);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
+                message = "Direct registration is deprecated. " +
+                          "Use /applications or /invitations."
+            });
         }
         [Authorize]
         [HttpDelete("{id}")]
@@ -243,35 +205,21 @@ namespace Beckend.Controllers
         }
         [Authorize]
         [HttpPost("{tournamentId}/teams/{teamId}")]
-        public async Task<IActionResult> AddTeam(string tournamentId, string teamId)
+        public IActionResult AddTeam(string tournamentId, string teamId)
         {
-            try
+            return StatusCode(410, new
             {
-                var result = await _registrationService.AddTeamToTournament(tournamentId, teamId);
-                if (result)
-                    return Ok();
-                return BadRequest("Failed to add team");
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(ex.Message);
-            }
+                message = "Direct participant addition is disabled."
+            });
         }
         [Authorize]
         [HttpDelete("{tournamentId}/teams/{teamId}")]
-        public async Task<IActionResult> RemoveTeam(string tournamentId, string teamId)
+        public IActionResult RemoveTeam(string tournamentId, string teamId)
         {
-            try
+            return StatusCode(410, new
             {
-                var result = await _registrationService.RemoveTeamFromTournament(tournamentId, teamId);
-                if (result)
-                    return Ok();
-                return BadRequest("Failed to remove team");
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(ex.Message);
-            }
+                message = "Use authorized participant management."
+            });
         }
         [Authorize]
         [HttpPatch("{id}/status")]

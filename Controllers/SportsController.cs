@@ -2,6 +2,7 @@
 using Beckend.Enums;
 using Beckend.DTOs;
 using Beckend.Services.Sports;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Beckend.Controllers
 {
@@ -59,6 +60,7 @@ namespace Beckend.Controllers
         }
 
         [HttpPatch("{id}/toggle")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ToggleActive(string id)
         {
             try
@@ -89,6 +91,7 @@ namespace Beckend.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create([FromBody] CreateSportDto createDto)
         {
             try
@@ -107,6 +110,7 @@ namespace Beckend.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(string id, [FromBody] UpdateSportDto updateDto)
         {
             try
@@ -129,6 +133,7 @@ namespace Beckend.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(string id)
         {
             var deleted = await _sportService.DeleteAsync(id);

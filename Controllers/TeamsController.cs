@@ -1,144 +1,396 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Beckend.DTOs;
+﻿using Beckend.DTOs;
+using Beckend.Enums;
+using Beckend.Models;
 using Beckend.Services.Teams;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
+using MongoDB.Driver;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
-namespace Beckend.Controllers
+namespace Beckend.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class TeamsController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class TeamsController : ControllerBase
+    private readonly ITeamService _teamService;
+    private readonly IMongoClient _client;
+    private readonly IMongoCollection<Team> _teams;
+    private readonly IMongoCollection<TeamMember> _members;
+    private readonly IMongoCollection<Tournament> _tournaments;
+    private readonly IMongoCollection<User> _users;
+
+    public TeamsController(
+        ITeamService teamService,
+        IMongoClient client,
+        IMongoDatabase database)
     {
-        private readonly ITeamService _teamService;
+        _teamService = teamService;
+        _client = client;
 
-        public TeamsController(ITeamService teamService)
-        {
-            _teamService = teamService;
-        }
+        _teams = database.GetCollection<Team>("Teams");
+        _members = database.GetCollection<TeamMember>("TeamMembers");
+        _tournaments = database.GetCollection<Tournament>("Tournaments");
+        _users = database.GetCollection<User>("Users");
+    }
 
-        [HttpGet("byname/{name}")]
-        public async Task<IActionResult> GetByName(string name)
+    private string? Actor =>
+        User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+    private bool IsAdmin => User.IsInRole("Admin");
+
+    private static bool ValidId(string id) =>
+        ObjectId.TryParse(id, out _);
+
+    private async Task<Team?> FindTeam(string id)
+    {
+        if (!ValidId(id)) return null;
+
+        return await _teams.Find(x => x.Id == id)
+            .FirstOrDefaultAsync();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        return Ok(await _teams.Find(
+            x => !x.IsArchived
+        ).ToListAsync());
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById(string id)
+    {
+        var team = await FindTeam(id);
+
+        if (team == null || team.IsArchived)
+            return NotFound();
+
+        return Ok(team);
+    }
+
+    [HttpGet("byname/{name}")]
+    public async Task<IActionResult> GetByName(string name)
+    {
+        var team = await _teams.Find(x =>
+            x.TeamName == name && !x.IsArchived
+        ).FirstOrDefaultAsync();
+
+        return team == null ? NotFound() : Ok(team);
+    }
+
+    [HttpGet("search")]
+    public async Task<IActionResult> Search(string term)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+            return Ok(Array.Empty<Team>());
+
+        var escaped =
+            System.Text.RegularExpressions.Regex.Escape(term);
+
+        var filter = Builders<Team>.Filter.And(
+            Builders<Team>.Filter.Eq(
+                x => x.IsArchived, false),
+            Builders<Team>.Filter.Regex(
+                x => x.TeamName,
+                new BsonRegularExpression(escaped, "i"))
+        );
+
+        return Ok(await _teams.Find(filter)
+            .Limit(100)
+            .ToListAsync());
+    }
+
+    [HttpGet("exists/{name}")]
+    public async Task<IActionResult> Exists(string name)
+    {
+        var exists = await _teams.Find(x =>
+            x.TeamName == name && !x.IsArchived
+        ).AnyAsync();
+
+        return Ok(new { name, exists });
+    }
+
+    [HttpGet("paged")]
+    public async Task<IActionResult> Paged(
+        int page = 1,
+        int pageSize = 12)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var teams = await _teams.Find(x => !x.IsArchived)
+            .SortBy(x => x.TeamName)
+            .Skip((page - 1) * pageSize)
+            .Limit(pageSize)
+            .ToListAsync();
+
+        return Ok(teams);
+    }
+
+
+    [HttpGet("{id}/players")]
+    public async Task<IActionResult> GetPlayers(string id)
+    {
+        var team = await FindTeam(id);
+
+        if (team == null || team.IsArchived)
+            return NotFound();
+
+        var memberships = await _members.Find(m =>
+            m.TeamId == id && m.IsActive
+        ).ToListAsync();
+
+        var ids = memberships
+            .Select(m => m.UserId)
+            .Distinct()
+            .ToList();
+
+        var users = await _users.Find(
+            Builders<User>.Filter.In(
+                u => u.Id, ids)
+        ).ToListAsync();
+
+        var map = users.ToDictionary(u => u.Id);
+
+        var result = memberships.Select(m =>
         {
-            try
+            map.TryGetValue(m.UserId, out var user);
+
+            return new
             {
-                var team = await _teamService.GetTeamByNameAsync(name);
-                return Ok(team);
-            }
-            catch (ArgumentException ex)
+                m.UserId,
+                m.Role,
+                m.JoinedAt,
+                IsOwner = m.UserId == team.OwnerId,
+                Name = user?.Name,
+                Surname = user?.Surname,
+                Age = user?.Age
+            };
+        });
+
+        return Ok(result);
+    }
+
+
+    [Authorize]
+    [HttpPost]
+    public async Task<IActionResult> Create(
+        [FromBody] CreateTeamDto dto,
+        CancellationToken ct)
+    {
+        var actor = Actor;
+
+        if (string.IsNullOrWhiteSpace(actor))
+            return Unauthorized();
+
+        if (string.IsNullOrWhiteSpace(dto.TeamName) ||
+            dto.TeamName.Trim().Length < 3)
+        {
+            return BadRequest(new
             {
-                return BadRequest(ex.Message);
-            }
-            catch (KeyNotFoundException ex)
+                message = "Team name must contain at least 3 characters"
+            });
+        }
+
+        if (!Enum.TryParse<SportName>(
+                dto.SportName, true, out var sport) ||
+            !Enum.IsDefined(sport))
+        {
+            return BadRequest(new
             {
-                return NotFound(ex.Message);
-            }
+                message = "Invalid sport"
+            });
         }
 
-        [HttpGet("search")]
-        public async Task<IActionResult> Search([FromQuery] string term)
-        {
-            var teams = await _teamService.SearchTeamsAsync(term);
-            return Ok(teams);
-        }
+        var name = dto.TeamName.Trim();
 
-        [HttpGet("exists/{name}")]
-        public async Task<IActionResult> CheckNameExists(string name)
+        if (name.Length > 100 ||
+            (dto.TeamDescription?.Length ?? 0) > 2000)
         {
-            var exists = await _teamService.TeamNameExistsAsync(name);
-            return Ok(new { name = name, exists = exists });
-        }
-
-        [HttpGet("paged")]
-        public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
-        {
-            var teams = await _teamService.GetTeamsPagedAsync(page, pageSize);
-            return Ok(teams);
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
-        {
-            var teams = await _teamService.GetAllAsync();
-            return Ok(teams);
-        }
-
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(string id)
-        {
-            var team = await _teamService.GetByIdAsync(id);
-            if (team == null)
-                return NotFound();
-            return Ok(team);
-        }
-        [HttpGet("{id}/players")]
-        public async Task<IActionResult> GetPlayers(string id)
-        {
-            try
+            return BadRequest(new
             {
-                var players = await _teamService.GetPlayersByTeamIdAsync(id);
+                message = "Team name or description is too long"
+            });
+        }
 
-                return Ok(players.Select(p => new
+        var existingName = await _teams.Find(
+            x => x.TeamName == name && !x.IsArchived
+        ).AnyAsync(ct);
+
+        if (existingName)
+            return Conflict(new
+            {
+                message = "Team name already exists"
+            });
+
+        var team = new Team
+        {
+            TeamName = name,
+            TeamDescription = dto.TeamDescription?.Trim() ?? "",
+            SportName = sport,
+            OwnerId = actor,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var ownerMembership = new TeamMember
+        {
+            TeamId = team.Id,
+            UserId = actor,
+            Role = TeamRole.Captain,
+            JoinedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+
+        try
+        {
+            using var session = await _client
+                .StartSessionAsync(cancellationToken: ct);
+
+            await session.WithTransactionAsync(
+                async (s, token) =>
                 {
-                    p.Id,
-                    p.Name,
-                    p.Surname,
-                    p.Age,
-                    p.Role
-                }));
-            }
-            catch (KeyNotFoundException)
+                    await _teams.InsertOneAsync(
+                        s, team,
+                        cancellationToken: token);
+
+                    await _members.InsertOneAsync(
+                        s, ownerMembership,
+                        cancellationToken: token);
+
+                    return true;
+                },
+                cancellationToken: ct);
+
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = team.Id },
+                team);
+        }
+        catch (MongoWriteException ex)
+            when (ex.WriteError.Category ==
+                  ServerErrorCategory.DuplicateKey)
+        {
+            return Conflict(new
             {
-                return NotFound(
-                    $"Team with id {id} not found");
-            }
+                message = "Duplicate team or membership"
+            });
+        }
+    }
+
+    [Authorize]
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(
+        string id,
+        [FromBody] UpdateTeamDto dto)
+    {
+        var actor = Actor;
+
+        if (string.IsNullOrWhiteSpace(actor))
+            return Unauthorized();
+
+        var team = await FindTeam(id);
+
+        if (team == null || team.IsArchived)
+            return NotFound();
+
+        if (team.OwnerId != actor && !IsAdmin)
+            return Forbid();
+
+        if (string.IsNullOrWhiteSpace(dto.TeamName) ||
+            dto.TeamName.Trim().Length < 3)
+            return BadRequest("Invalid team name");
+
+        if (dto.TeamName.Trim().Length > 100 ||
+            (dto.TeamDescription?.Length ?? 0) > 2000)
+            return BadRequest("Team fields are too long");
+
+        if (!Enum.TryParse<SportName>(
+                dto.SportName, true, out var sport) ||
+            !Enum.IsDefined(sport))
+            return BadRequest("Invalid sport");
+        if (team.SportName != sport)
+        {
+            var used = await _tournaments.Find(t =>
+                t.TournamentParticipants.Any(
+                    p => p.Id == id)
+            ).AnyAsync();
+
+            if (used)
+                return Conflict(new
+                {
+                    message =
+                        "Cannot change sport of a registered team"
+                });
         }
 
-        [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateTeamDto createDto)
-        {
-            try
-            {
-                var created = await _teamService.CreateAsync(createDto);
-                return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Conflict(ex.Message);
-            }
-        }
+        var filter = Builders<Team>.Filter.And(
+            Builders<Team>.Filter.Eq(x => x.Id, id),
+            Builders<Team>.Filter.Eq(x => x.IsArchived, false),
+            IsAdmin
+                ? Builders<Team>.Filter.Empty
+                : Builders<Team>.Filter.Eq(x => x.OwnerId, actor)
+        );
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(string id, [FromBody] UpdateTeamDto updateDto)
-        {
-            try
-            {
-                var updated = await _teamService.UpdateAsync(id, updateDto);
-                return Ok(updated);
-            }
-            catch (KeyNotFoundException)
-            {
-                return NotFound();
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Conflict(ex.Message);
-            }
-        }
+        var update = Builders<Team>.Update
+            .Set(x => x.TeamName, dto.TeamName.Trim())
+            .Set(
+                x => x.TeamDescription,
+                dto.TeamDescription?.Trim() ?? "")
+            .Set(x => x.SportName, sport);
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(string id)
-        {
-            var deleted = await _teamService.DeleteAsync(id);
-            if (!deleted)
-                return NotFound();
-            return NoContent();
-        }
+        var result = await _teams.UpdateOneAsync(
+            filter, update);
+
+        if (result.MatchedCount != 1)
+            return Conflict("Team was modified or access changed");
+
+        return Ok(await FindTeam(id));
+    }
+
+    [Authorize]
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Archive(string id)
+    {
+        var actor = Actor;
+
+        if (string.IsNullOrWhiteSpace(actor))
+            return Unauthorized();
+
+        var team = await FindTeam(id);
+
+        if (team == null || team.IsArchived)
+            return NotFound();
+
+        if (team.OwnerId != actor && !IsAdmin)
+            return Forbid();
+
+        var hasActiveTournament = await _tournaments.Find(t =>
+            t.TournamentParticipants.Any(p => p.Id == id) &&
+            t.Status != TournamentStatus.Completed &&
+            t.Status != TournamentStatus.Cancelled
+        ).AnyAsync();
+
+        if (hasActiveTournament)
+            return Conflict(new
+            {
+                message =
+                    "Team participates in an unfinished tournament"
+            });
+
+        var result = await _teams.UpdateOneAsync(
+            x => x.Id == id &&
+                 !x.IsArchived &&
+                 (x.OwnerId == actor || IsAdmin),
+            Builders<Team>.Update.Set(
+                x => x.IsArchived, true)
+        );
+
+        return result.ModifiedCount == 1
+            ? NoContent()
+            : Conflict("Team could not be archived");
     }
 }

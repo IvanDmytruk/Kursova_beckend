@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Beckend.DTOs;
 using Beckend.Services.Statistics;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Beckend.Controllers
 {
@@ -70,7 +71,7 @@ namespace Beckend.Controllers
             var topPlayers = await _statisticService.GetTopPlayersAsync(limit);
             return Ok(topPlayers);
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpPatch("{id}/match")]
         public async Task<IActionResult> UpdateMatchStats(string id, [FromBody] MatchStatsRequest request)
         {
@@ -102,6 +103,7 @@ namespace Beckend.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create([FromBody] CreateStatisticDto createDto)
         {
             try
@@ -116,6 +118,7 @@ namespace Beckend.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(string id, [FromBody] UpdateStatisticDto updateDto)
         {
             try
@@ -134,6 +137,7 @@ namespace Beckend.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(string id)
         {
             var deleted = await _statisticService.DeleteAsync(id);

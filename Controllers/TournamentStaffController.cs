@@ -1,9 +1,13 @@
-﻿using System.Security.Claims;
-using Beckend.DTOs.TournamentStaff;
+﻿using Beckend.DTOs.TournamentStaff;
+using Beckend.Enums;
+using Beckend.Models;
+using Beckend.Repositories.TournamentStaffs;
 using Beckend.Services.TournamentStaff;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MongoDB.Driver;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace Beckend.Controllers;
 
@@ -13,11 +17,17 @@ namespace Beckend.Controllers;
 public class TournamentStaffController : ControllerBase
 {
     private readonly ITournamentStaffService _staffService;
+    private readonly ITournamentStaffRepository _staffRepository;
+    private readonly IMongoCollection<Tournament> _tournaments;
 
     public TournamentStaffController(
-        ITournamentStaffService staffService)
+        ITournamentStaffService staffService,
+        ITournamentStaffRepository staffRepository,
+        IMongoCollection<Tournament> tournaments)
     {
         _staffService = staffService;
+        _staffRepository = staffRepository;
+        _tournaments = tournaments;
     }
 
     private string? CurrentUserId =>
@@ -153,4 +163,56 @@ public class TournamentStaffController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+
+    [HttpGet("me")]
+    public async Task<IActionResult> GetMyPermissions(
+        string tournamentId)
+    {
+        var actor = CurrentUserId;
+
+        if (string.IsNullOrWhiteSpace(actor))
+            return Unauthorized();
+
+        var tournament = await _tournaments.Find(
+            x => x.Id == tournamentId
+        ).FirstOrDefaultAsync();
+
+        if (tournament == null)
+            return NotFound();
+
+        var isOrganizer = tournament.CreatedBy == actor;
+
+        if (isOrganizer)
+        {
+            return Ok(new
+            {
+                tournamentId,
+                userId = actor,
+                isOrganizer = true,
+                isManager = false,
+                permissions = TournamentPermission.All
+            });
+        }
+
+        var staff = await _staffRepository.GetActiveAsync(
+            tournamentId, actor);
+
+        var isManager =
+            staff != null &&
+            staff.IsActive &&
+            staff.RevokedAt == null &&
+            staff.Role == TournamentMemberRole.Manager;
+
+        return Ok(new
+        {
+            tournamentId,
+            userId = actor,
+            isOrganizer = false,
+            isManager,
+            permissions = isManager
+                ? staff!.Permissions
+                : TournamentPermission.None
+        });
+    }
+
 }

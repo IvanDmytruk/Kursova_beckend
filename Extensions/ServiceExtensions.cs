@@ -50,6 +50,9 @@ public static class ServiceExtensions
         services.AddScoped<ITournamentAdministrationService, TournamentAdministrationService>();
         services.AddScoped<DisqualificationPlanner>();
         services.AddScoped<GroupStagePlayoffService>();
+        services.AddScoped<ParticipationApprovalService>();
+        services.AddSingleton<TeamWorkflowIndexes>();
+        services.AddScoped<TeamInvitationAcceptanceService>();
         return services;
     }
 }

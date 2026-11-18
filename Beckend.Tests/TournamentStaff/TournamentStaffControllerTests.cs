@@ -1,4 +1,6 @@
-
+using Beckend.Models;
+using Beckend.Repositories.TournamentStaffs;
+using MongoDB.Driver;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Beckend.Controllers;
@@ -20,14 +22,26 @@ public class TournamentStaffControllerTests
     private const string OrganizerId = "organizer-1";
     private const string ManagerId = "manager-1";
 
-    private readonly Mock<ITournamentStaffService> _service = new();
-    private readonly TournamentStaffController _controller;
 
-    public TournamentStaffControllerTests()
-    {
-        _controller = new TournamentStaffController(_service.Object);
-        SetUser(OrganizerId);
-    }
+private readonly Mock<ITournamentStaffService> _service = new();
+
+private readonly Mock<ITournamentStaffRepository> _staffRepository = new();
+
+private readonly Mock<IMongoCollection<Tournament>> _tournaments = new();
+
+private readonly TournamentStaffController _controller;
+
+public TournamentStaffControllerTests()
+{
+    _controller = new TournamentStaffController(
+        _service.Object,
+        _staffRepository.Object,
+        _tournaments.Object
+    );
+
+    SetUser(OrganizerId);
+}
+
 
     private void SetUser(string? userId)
     {

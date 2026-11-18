@@ -2,6 +2,7 @@
 using Beckend.JWT;
 using Beckend.Mappings;
 using Beckend.Repositories.TournamentStaffs;
+using Beckend.Services.Teams;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -21,7 +22,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                 "https://kursova-frontend.vercel.app",
-                "http://localhost:5500"
+                "http://localhost:5500",
+                "http://127.0.0.1:5500"
             )
             .AllowAnyMethod()
             .AllowAnyHeader();
@@ -146,6 +148,11 @@ using (var scope = app.Services.CreateScope())
         .GetRequiredService<ITournamentStaffRepository>();
 
     await staffRepository.EnsureIndexesAsync();
+
+    var workflowIndexes = scope.ServiceProvider
+        .GetRequiredService<TeamWorkflowIndexes>();
+
+    await workflowIndexes.EnsureAsync();
 }
 if (!app.Environment.IsDevelopment())
 {
